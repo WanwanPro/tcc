@@ -1,0 +1,680 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TCC停车小程序API",
+    "version": "1.0.0",
+    "description": "智能停车场小程序API文档"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "TCC小程序后端服务器"
+    }
+  ],
+  "paths": {
+    "/api/users/register": {
+      "post": {
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "用户注册",
+        "description": "用户注册账号",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户名"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "密码"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "邮箱"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "手机号"
+                  },
+                  "licensePlate": {
+                    "type": "string",
+                    "description": "车牌号"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password",
+                  "email",
+                  "phone"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "注册成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/login": {
+      "post": {
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "用户登录",
+        "description": "用户登录获取访问令牌",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户名"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "密码"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "username": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parking/spaces": {
+      "get": {
+        "tags": [
+          "停车位管理"
+        ],
+        "summary": "获取停车位列表",
+        "description": "获取可用停车位列表",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "parkingLotId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "停车场ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "available",
+                "occupied"
+              ]
+            },
+            "description": "状态筛选"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "parkingLotId": {
+                            "type": "string"
+                          },
+                          "floor": {
+                            "type": "string"
+                          },
+                          "section": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parking/spaces/{id}/reserve": {
+      "post": {
+        "tags": [
+          "停车位管理"
+        ],
+        "summary": "预定停车位",
+        "description": "预定指定的停车位",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "停车位ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "预定成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "reservedUntil": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/navigation/routes": {
+      "post": {
+        "tags": [
+          "路径规划"
+        ],
+        "summary": "获取导航路径",
+        "description": "计算从入口到指定停车位的导航路径",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entranceId": {
+                    "type": "string",
+                    "description": "入口ID"
+                  },
+                  "spaceId": {
+                    "type": "string",
+                    "description": "停车位ID"
+                  },
+                  "preferences": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "路径偏好"
+                  }
+                },
+                "required": [
+                  "entranceId",
+                  "spaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "route": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nodeId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "instruction": {
+                                "type": "string"
+                              },
+                              "distance": {
+                                "type": "number"
+                              },
+                              "direction": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "totalDistance": {
+                          "type": "number"
+                        },
+                        "estimatedTime": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/navigation/routes/{id}/optimize": {
+      "put": {
+        "tags": [
+          "路径规划"
+        ],
+        "summary": "优化导航路径",
+        "description": "根据实时情况优化导航路径",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "路径ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "优化成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "route": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nodeId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "instruction": {
+                                "type": "string"
+                              },
+                              "distance": {
+                                "type": "number"
+                              },
+                              "direction": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "totalDistance": {
+                          "type": "number"
+                        },
+                        "estimatedTime": {
+                          "type": "number"
+                        },
+                        "optimizationReason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/recognize": {
+      "post": {
+        "tags": [
+          "图像识别"
+        ],
+        "summary": "车牌识别",
+        "description": "识别图像中的车牌号码",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "车辆图像"
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "识别成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "licensePlate": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "number"
+                        },
+                        "boundingBox": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "width": {
+                              "type": "number"
+                            },
+                            "height": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/analyze": {
+      "post": {
+        "tags": [
+          "图像识别"
+        ],
+        "summary": "车辆状态分析",
+        "description": "分析车辆状态和停车位占用情况",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "停车场图像"
+                  },
+                  "parkingLotId": {
+                    "type": "string",
+                    "description": "停车场ID"
+                  }
+                },
+                "required": [
+                  "image",
+                  "parkingLotId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分析成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "spaceStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "spaceId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "confidence": {
+                                "type": "number"
+                              },
+                              "vehicleInfo": {
+                                "type": "object",
+                                "properties": {
+                                  "licensePlate": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "color": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "totalSpaces": {
+                          "type": "integer"
+                        },
+                        "occupiedSpaces": {
+                          "type": "integer"
+                        },
+                        "availableSpaces": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

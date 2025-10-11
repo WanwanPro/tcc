@@ -1,0 +1,1146 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+
+// 创建OpenAPI规范文档
+const generateOpenAPIDoc = () => {
+  const openApiSpec = {
+    openapi: '3.0.0',
+    info: {
+      title: 'TCC停车管理系统后台管理API',
+      version: '1.0.0',
+      description: '智能停车场后台管理系统API文档',
+    },
+    servers: [
+      {
+        url: 'http://localhost:5000',
+        description: 'TCC管理系统后端服务器',
+      },
+    ],
+    paths: {
+      // 认证相关接口
+      '/api/admin/auth/login': {
+        post: {
+          tags: ['认证管理'],
+          summary: '管理员登录',
+          description: '管理员登录获取访问令牌',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    username: { type: 'string', description: '用户名' },
+                    password: { type: 'string', description: '密码' }
+                  },
+                  required: ['username', 'password']
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: '登录成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          token: { type: 'string' },
+                          user: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              username: { type: 'string' },
+                              email: { type: 'string' },
+                              role: { type: 'string' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/auth/me': {
+        get: {
+          tags: ['认证管理'],
+          summary: '获取当前用户信息',
+          description: '获取当前登录管理员信息',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          role: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/auth/logout': {
+        post: {
+          tags: ['认证管理'],
+          summary: '用户登出',
+          description: '管理员登出系统',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: '登出成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/auth/change-password': {
+        put: {
+          tags: ['认证管理'],
+          summary: '修改密码',
+          description: '管理员修改登录密码',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentPassword: { type: 'string', description: '当前密码' },
+                    newPassword: { type: 'string', description: '新密码' }
+                  },
+                  required: ['currentPassword', 'newPassword']
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: '密码修改成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      
+      // 用户管理接口
+      '/api/admin/users': {
+        get: {
+          tags: ['用户管理'],
+          summary: '获取管理员列表',
+          description: '分页获取管理员列表，支持搜索和筛选',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'page',
+              in: 'query',
+              schema: { type: 'integer', default: 1 },
+              description: '页码'
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 10 },
+              description: '每页数量'
+            },
+            {
+              name: 'search',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '搜索关键词'
+            },
+            {
+              name: 'role',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '角色筛选'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          users: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                username: { type: 'string' },
+                                email: { type: 'string' },
+                                role: { type: 'string' },
+                                isActive: { type: 'boolean' },
+                                createdAt: { type: 'string' }
+                              }
+                            }
+                          },
+                          pagination: {
+                            type: 'object',
+                            properties: {
+                              page: { type: 'integer' },
+                              limit: { type: 'integer' },
+                              total: { type: 'integer' },
+                              pages: { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          tags: ['用户管理'],
+          summary: '创建管理员',
+          description: '创建新的管理员账号',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    username: { type: 'string', description: '用户名' },
+                    email: { type: 'string', description: '邮箱' },
+                    password: { type: 'string', description: '密码' },
+                    role: { type: 'string', description: '角色' },
+                    profile: {
+                      type: 'object',
+                      properties: {
+                        firstName: { type: 'string' },
+                        lastName: { type: 'string' },
+                        phone: { type: 'string' }
+                      }
+                    }
+                  },
+                  required: ['username', 'email', 'password', 'role']
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: '创建成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          role: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/users/{id}': {
+        get: {
+          tags: ['用户管理'],
+          summary: '获取管理员详情',
+          description: '根据ID获取管理员详细信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '管理员ID'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          role: { type: 'string' },
+                          profile: {
+                            type: 'object',
+                            properties: {
+                              firstName: { type: 'string' },
+                              lastName: { type: 'string' },
+                              phone: { type: 'string' }
+                            }
+                          },
+                          isActive: { type: 'boolean' },
+                          createdAt: { type: 'string' },
+                          updatedAt: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        put: {
+          tags: ['用户管理'],
+          summary: '更新管理员信息',
+          description: '更新管理员账号信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '管理员ID'
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    email: { type: 'string', description: '邮箱' },
+                    role: { type: 'string', description: '角色' },
+                    profile: {
+                      type: 'object',
+                      properties: {
+                        firstName: { type: 'string' },
+                        lastName: { type: 'string' },
+                        phone: { type: 'string' }
+                      }
+                    },
+                    isActive: { type: 'boolean', description: '是否激活' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: '更新成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          username: { type: 'string' },
+                          email: { type: 'string' },
+                          role: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      
+      // 停车场管理接口
+      '/api/admin/parking/lots': {
+        get: {
+          tags: ['停车场管理'],
+          summary: '获取停车场列表',
+          description: '分页获取停车场列表，支持搜索和状态筛选',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'page',
+              in: 'query',
+              schema: { type: 'integer', default: 1 },
+              description: '页码'
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 10 },
+              description: '每页数量'
+            },
+            {
+              name: 'search',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '搜索关键词'
+            },
+            {
+              name: 'status',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '状态筛选'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          parkingLots: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                address: { type: 'string' },
+                                totalSpaces: { type: 'integer' },
+                                availableSpaces: { type: 'integer' },
+                                status: { type: 'string' },
+                                createdAt: { type: 'string' }
+                              }
+                            }
+                          },
+                          pagination: {
+                            type: 'object',
+                            properties: {
+                              page: { type: 'integer' },
+                              limit: { type: 'integer' },
+                              total: { type: 'integer' },
+                              pages: { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          tags: ['停车场管理'],
+          summary: '创建停车场',
+          description: '创建新的停车场',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', description: '停车场名称' },
+                    address: { type: 'string', description: '停车场地址' },
+                    description: { type: 'string', description: '停车场描述' },
+                    totalSpaces: { type: 'integer', description: '总车位数' },
+                    floors: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string' },
+                          sections: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                name: { type: 'string' },
+                                spaceCount: { type: 'integer' }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    operatingHours: {
+                      type: 'object',
+                      properties: {
+                        open: { type: 'string' },
+                        close: { type: 'string' }
+                      }
+                    },
+                    pricing: {
+                      type: 'object',
+                      properties: {
+                        hourly: { type: 'number' },
+                        daily: { type: 'number' },
+                        monthly: { type: 'number' }
+                      }
+                    }
+                  },
+                  required: ['name', 'address', 'totalSpaces']
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: '创建成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          name: { type: 'string' },
+                          address: { type: 'string' },
+                          totalSpaces: { type: 'integer' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/parking/lots/{id}': {
+        get: {
+          tags: ['停车场管理'],
+          summary: '获取停车场详情',
+          description: '根据ID获取停车场详细信息，包括车位和节点信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车场ID'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          name: { type: 'string' },
+                          address: { type: 'string' },
+                          description: { type: 'string' },
+                          totalSpaces: { type: 'integer' },
+                          availableSpaces: { type: 'integer' },
+                          status: { type: 'string' },
+                          floors: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                sections: {
+                                  type: 'array',
+                                  items: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      spaces: {
+                                        type: 'array',
+                                        items: {
+                                          type: 'object',
+                                          properties: {
+                                            id: { type: 'string' },
+                                            number: { type: 'string' },
+                                            status: { type: 'string' },
+                                            type: { type: 'string' }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          nodes: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                type: { type: 'string' },
+                                coordinates: {
+                                  type: 'object',
+                                  properties: {
+                                    x: { type: 'number' },
+                                    y: { type: 'number' },
+                                    floor: { type: 'string' }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        put: {
+          tags: ['停车场管理'],
+          summary: '更新停车场信息',
+          description: '更新停车场基本信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车场ID'
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', description: '停车场名称' },
+                    address: { type: 'string', description: '停车场地址' },
+                    description: { type: 'string', description: '停车场描述' },
+                    totalSpaces: { type: 'integer', description: '总车位数' },
+                    status: { type: 'string', description: '状态' },
+                    operatingHours: {
+                      type: 'object',
+                      properties: {
+                        open: { type: 'string' },
+                        close: { type: 'string' }
+                      }
+                    },
+                    pricing: {
+                      type: 'object',
+                      properties: {
+                        hourly: { type: 'number' },
+                        daily: { type: 'number' },
+                        monthly: { type: 'number' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: '更新成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          name: { type: 'string' },
+                          address: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        delete: {
+          tags: ['停车场管理'],
+          summary: '删除停车场',
+          description: '根据ID删除停车场',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车场ID'
+            }
+          ],
+          responses: {
+            200: {
+              description: '删除成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/parking/spaces': {
+        get: {
+          tags: ['停车场管理'],
+          summary: '获取停车位列表',
+          description: '分页获取停车位列表，支持多条件筛选',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'page',
+              in: 'query',
+              schema: { type: 'integer', default: 1 },
+              description: '页码'
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 10 },
+              description: '每页数量'
+            },
+            {
+              name: 'parkingLotId',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '停车场ID'
+            },
+            {
+              name: 'floor',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '楼层'
+            },
+            {
+              name: 'section',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '区域'
+            },
+            {
+              name: 'status',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '状态筛选'
+            },
+            {
+              name: 'type',
+              in: 'query',
+              schema: { type: 'string' },
+              description: '类型筛选'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          spaces: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                number: { type: 'string' },
+                                status: { type: 'string' },
+                                type: { type: 'string' },
+                                parkingLotId: { type: 'string' },
+                                floor: { type: 'string' },
+                                section: { type: 'string' },
+                                coordinates: {
+                                  type: 'object',
+                                  properties: {
+                                    x: { type: 'number' },
+                                    y: { type: 'number' }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          pagination: {
+                            type: 'object',
+                            properties: {
+                              page: { type: 'integer' },
+                              limit: { type: 'integer' },
+                              total: { type: 'integer' },
+                              pages: { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          tags: ['停车场管理'],
+          summary: '创建停车位',
+          description: '创建新的停车位',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    number: { type: 'string', description: '车位编号' },
+                    parkingLotId: { type: 'string', description: '停车场ID' },
+                    floor: { type: 'string', description: '楼层' },
+                    section: { type: 'string', description: '区域' },
+                    type: { type: 'string', description: '车位类型' },
+                    coordinates: {
+                      type: 'object',
+                      properties: {
+                        x: { type: 'number' },
+                        y: { type: 'number' }
+                      }
+                    }
+                  },
+                  required: ['number', 'parkingLotId', 'floor', 'section', 'type']
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: '创建成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          number: { type: 'string' },
+                          parkingLotId: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/admin/parking/spaces/{id}': {
+        get: {
+          tags: ['停车场管理'],
+          summary: '获取停车位详情',
+          description: '根据ID获取停车位详细信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车位ID'
+            }
+          ],
+          responses: {
+            200: {
+              description: '获取成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          number: { type: 'string' },
+                          status: { type: 'string' },
+                          type: { type: 'string' },
+                          parkingLotId: { type: 'string' },
+                          floor: { type: 'string' },
+                          section: { type: 'string' },
+                          coordinates: {
+                            type: 'object',
+                            properties: {
+                              x: { type: 'number' },
+                              y: { type: 'number' }
+                            }
+                          },
+                          vehicleInfo: {
+                            type: 'object',
+                            properties: {
+                              licensePlate: { type: 'string' },
+                              entryTime: { type: 'string' },
+                              estimatedExitTime: { type: 'string' }
+                            }
+                          },
+                          createdAt: { type: 'string' },
+                          updatedAt: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        put: {
+          tags: ['停车场管理'],
+          summary: '更新停车位信息',
+          description: '更新停车位信息',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车位ID'
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    number: { type: 'string', description: '车位编号' },
+                    status: { type: 'string', description: '状态' },
+                    type: { type: 'string', description: '车位类型' },
+                    coordinates: {
+                      type: 'object',
+                      properties: {
+                        x: { type: 'number' },
+                        y: { type: 'number' }
+                      }
+                    },
+                    vehicleInfo: {
+                      type: 'object',
+                      properties: {
+                        licensePlate: { type: 'string' },
+                        entryTime: { type: 'string' },
+                        estimatedExitTime: { type: 'string' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: '更新成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          number: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        delete: {
+          tags: ['停车场管理'],
+          summary: '删除停车位',
+          description: '根据ID删除停车位',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: '停车位ID'
+            }
+          ],
+          responses: {
+            200: {
+              description: '删除成功',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      message: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    }
+  };
+  
+  return openApiSpec;
+};
+
+// 创建Express应用
+const app = express();
+const PORT = 3000;
+
+// 中间件
+app.use(express.json());
+
+// 提供OpenAPI文档的端点
+app.get('/api-docs', (req, res) => {
+  const openApiSpec = generateOpenAPIDoc();
+  res.json(openApiSpec);
+});
+
+// 导出OpenAPI文档到文件
+app.post('/export-api-docs', (req, res) => {
+  const openApiSpec = generateOpenAPIDoc();
+  const filePath = path.join(__dirname, 'tcc-admin-api.json');
+  
+  fs.writeFileSync(filePath, JSON.stringify(openApiSpec, null, 2));
+  
+  res.json({
+    success: true,
+    message: 'API文档已导出',
+    filePath: filePath
+  });
+});
+
+// 启动服务器
+app.listen(PORT, () => {
+  console.log(`API文档服务器运行在 http://localhost:${PORT}`);
+  console.log(`访问 http://localhost:${PORT}/api-docs 获取OpenAPI规范`);
+  console.log(`发送POST请求到 http://localhost:${PORT}/export-api-docs 导出文档到文件`);
+});
+
+module.exports = app;
