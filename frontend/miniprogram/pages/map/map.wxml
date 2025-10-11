@@ -1,0 +1,32 @@
+<view class="container">
+  <view class="header">
+    <text class="title">停车场地图</text>
+    <text class="free-spaces">空闲车位: {{freeSpaces}}</text>
+  </view>
+
+  <view class="map-container" style="height: {{mapHeight}}px;">
+    <!-- 简化的车位地图展示 -->
+    <view class="parking-map">
+      <view 
+        wx:for="{{spaces}}" 
+        wx:key="spaceId"
+        class="parking-space {{item.status === '空闲' ? 'free' : 'occupied'}}"
+        data-space-id="{{item.spaceId}}"
+        bindtap="selectSpace"
+        style="left: {{item.position.x}}px; top: {{item.position.y}}px;"
+      >
+        <text class="space-id">{{item.spaceId}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="space-info" wx:if="{{selectedSpace}}">
+    <text>车位ID: {{selectedSpace.spaceId}}</text>
+    <text>状态: {{selectedSpace.status}}</text>
+    <button class="nav-btn">导航到此车位</button>
+  </view>
+
+  <view class="actions">
+    <button class="refresh-btn" bindtap="refreshSpaces">刷新</button>
+  </view>
+</view>

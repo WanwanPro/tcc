@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="header">
+    <text class="parking-name">{{parkingName}}</text>
+    <text class="welcome">欢迎使用智能停车系统</text>
+  </view>
+
+  <view class="stats-card">
+    <view class="stats-item">
+      <text class="stats-number">{{freeSpaces}}</text>
+      <text class="stats-label">空闲车位</text>
+    </view>
+    <view class="stats-item">
+      <text class="stats-number">{{totalSpaces}}</text>
+      <text class="stats-label">总车位数</text>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="action-btn" bindtap="goToMap">
+      <image class="btn-icon" src="/assets/icons/map.png"></image>
+      <text>查看地图</text>
+    </button>
+    <button class="action-btn" bindtap="goToNavigation">
+      <image class="btn-icon" src="/assets/icons/navigation.png"></image>
+      <text>开始导航</text>
+    </button>
+  </view>
+
+  <view class="notices">
+    <text class="notice-title">公告</text>
+    <view wx:for="{{notices}}" wx:key="index" class="notice-item">
+      <text class="notice-text">• {{item}}</text>
+    </view>
+  </view>
+</view>
