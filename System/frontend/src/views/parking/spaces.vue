@@ -4,7 +4,10 @@
       <template #header>
         <div class="card-header">
           <span>车位信息管理</span>
-          <el-button type="primary" @click="handleAdd">新增车位</el-button>
+          <div>
+            <el-button type="success" @click="importTcc1Data">导入TCC1数据</el-button>
+            <el-button type="primary" @click="handleAdd">新增车位</el-button>
+          </div>
         </div>
       </template>
       
@@ -14,7 +17,6 @@
             <el-select v-model="filterForm.area" placeholder="请选择区域" clearable>
               <el-option label="A区" value="A" />
               <el-option label="B区" value="B" />
-              <el-option label="C区" value="C" />
             </el-select>
           </el-form-item>
           <el-form-item label="状态">
@@ -90,7 +92,6 @@
           <el-select v-model="form.area" placeholder="请选择区域">
             <el-option label="A区" value="A" />
             <el-option label="B区" value="B" />
-            <el-option label="C区" value="C" />
           </el-select>
         </el-form-item>
         <el-form-item label="车位号">
@@ -124,6 +125,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
 
 export default {
   name: 'ParkingSpaces',
@@ -155,12 +157,61 @@ export default {
       { id: 5, area: 'C', number: 'C001', type: '普通车位', status: '空闲', currentCar: '-', parkingTime: '-' }
     ]
     
-    const fetchParkingSpaces = () => {
-      // 模拟API请求
-      setTimeout(() => {
-        parkingSpaces.value = mockData
-        total.value = mockData.length
-      }, 500)
+    const importTcc1Data = async () => {
+      try {
+        ElMessageBox.confirm(
+          '确定要导入TCC1数据吗？这将清除现有车位数据并导入新的数据。',
+          '警告',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        ).then(async () => {
+        const response = await request.post('/admin/import/import-tcc1-data')
+          
+          if (response.success) {
+            ElMessage.success(`成功导入 ${response.data.importedSpaces} 个车位`)
+            fetchParkingSpaces()
+          } else {
+            ElMessage.error('导入失败: ' + response.message)
+          }
+        }).catch(() => {
+          ElMessage.info('已取消导入')
+        })
+      } catch (error) {
+        console.error('导入TCC1数据错误:', error)
+        ElMessage.error('导入TCC1数据错误')
+      }
+    }
+    
+    const fetchParkingSpaces = async () => {
+      try {
+        const response = await request.get(`/admin/parking/spaces?page=${currentPage.value}&limit=${pageSize.value}`)
+        
+        if (response.success) {
+          // 转换数据格式以适应前端
+          parkingSpaces.value = response.data.spaces.map(space => ({
+            id: space._id,
+            spaceId: space.spaceId,
+            area: space.area || 'A区',
+            number: space.spaceId,
+            type: space.type === 'standard' ? '普通车位' : space.type,
+            status: space.status === 'available' ? '空闲' : space.status === 'occupied' ? '占用' : '维修中',
+            currentCar: space.status === 'occupied' ? '未知车辆' : '-',
+            parkingTime: space.status === 'occupied' ? '未知' : '-',
+            position: space.position,
+            floorId: space.floorId,
+            lotId: space.lotId._id || space.lotId
+          }))
+          total.value = response.data.pagination.total
+        } else {
+          ElMessage.error('获取车位数据失败')
+        }
+      } catch (error) {
+        console.error('获取车位数据错误:', error)
+        ElMessage.error('获取车位数据错误')
+      }
     }
     
     const getStatusType = (status) => {
@@ -282,6 +333,7 @@ export default {
       filterForm,
       form,
       getStatusType,
+      importTcc1Data,
       handleAdd,
       handleEdit,
       handleChangeStatus,

@@ -74,7 +74,7 @@ const passwordRef = ref(null)
 
 const loginForm = reactive({
   username: 'admin',
-  password: '123456'
+  password: 'admin123'
 })
 
 const loginRules = reactive({

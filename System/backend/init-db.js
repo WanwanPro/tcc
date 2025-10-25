@@ -5,7 +5,7 @@ const mongoose = require('mongoose')
 const runInit = async () => {
   try {
     // 从环境变量或使用默认值获取数据库URI
-    const dbUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_admin'
+    const dbUri = process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_admin'
     
     // 连接数据库
     await mongoose.connect(dbUri, {

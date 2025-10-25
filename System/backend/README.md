@@ -54,7 +54,7 @@ cp .env.example .env
 ```
 NODE_ENV=development
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/parking_admin
+MONGODB_URI=mongodb://192.168.0.78:27017/parking_admin
 JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRES_IN=24h
 ```

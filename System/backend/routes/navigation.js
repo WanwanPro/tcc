@@ -71,7 +71,45 @@ router.get('/', async (req, res) => {
   }
 })
 
-// 获取单个导航路径
+// 获取特定停车场的导航路径 - 必须放在 /:id 路由之前
+router.get('/lot/:lotId', async (req, res) => {
+  try {
+    const lotId = req.params.lotId
+    const { pathType, isActive } = req.query
+    
+    // 构建查询条件
+    const query = { lotId }
+    
+    if (pathType) {
+      query.pathType = pathType
+    }
+    
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true'
+    }
+    
+    const paths = await NavigationPath.find(query)
+      .populate('startNode', 'nodeId name type')
+      .populate('endNode', 'nodeId name type')
+      .sort({ createdAt: -1 })
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        paths,
+        count: paths.length
+      }
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    })
+  }
+})
+
+// 获取单个导航路径 - 必须放在更具体的路由之后
 router.get('/:id', async (req, res) => {
   try {
     const path = await NavigationPath.findById(req.params.id)
@@ -248,42 +286,6 @@ router.delete('/:id', async (req, res) => {
     res.status(200).json({
       success: true,
       message: '导航路径删除成功'
-    })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({
-      success: false,
-      message: '服务器错误'
-    })
-  }
-})
-
-// 获取特定停车场的导航路径
-router.get('/lot/:lotId', async (req, res) => {
-  try {
-    const lotId = req.params.lotId
-    const { pathType, isActive } = req.query
-    
-    // 构建查询条件
-    const query = { lotId }
-    
-    if (pathType) {
-      query.pathType = pathType
-    }
-    
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true'
-    }
-    
-    // 获取路径
-    const paths = await NavigationPath.find(query)
-      .populate('startNode', 'nodeId name type')
-      .populate('endNode', 'nodeId name type')
-      .sort({ createdAt: -1 })
-    
-    res.status(200).json({
-      success: true,
-      data: paths
     })
   } catch (error) {
     console.error(error)

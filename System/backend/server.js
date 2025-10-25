@@ -18,6 +18,7 @@ const simulationRoutes = require('./routes/simulation')
 const financeRoutes = require('./routes/finance')
 const systemRoutes = require('./routes/system')
 const analyticsRoutes = require('./routes/analytics')
+const importTcc1DataRoutes = require('./routes/importTcc1Data')
 // 微信小程序专用路由
 const miniprogramRoutes = require('./routes/miniprogram')
 const miniprogramPathRoutes = require('./routes/miniprogramPath')
@@ -69,6 +70,7 @@ app.use('/api/admin/simulation', simulationRoutes)
 app.use('/api/admin/finance', financeRoutes)
 app.use('/api/admin/system', systemRoutes)
 app.use('/api/admin/analytics', analyticsRoutes)
+app.use('/api/admin/import', importTcc1DataRoutes)
 // 微信小程序专用路由
 app.use('/api/spaces', miniprogramRoutes)
 app.use('/api/path', miniprogramPathRoutes)
@@ -92,7 +94,7 @@ app.use(errorHandler)
 // 数据库连接
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_admin', {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     })

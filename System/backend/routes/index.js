@@ -36,12 +36,18 @@ router.post('/parking/lots', auth, parkingController.createParkingLot)
 router.put('/parking/lots/:id', auth, parkingController.updateParkingLot)
 router.delete('/parking/lots/:id', auth, parkingController.deleteParkingLot)
 router.get('/parking/lots/:id/spaces', auth, parkingController.getParkingSpaces)
+router.get('/parking/spaces', auth, parkingController.getParkingSpaces)
 router.get('/parking/spaces/:id', auth, parkingController.getParkingSpace)
 router.post('/parking/spaces', auth, parkingController.createParkingSpace)
 router.put('/parking/spaces/:id', auth, parkingController.updateParkingSpace)
 router.delete('/parking/spaces/:id', auth, parkingController.deleteParkingSpace)
 router.post('/parking/spaces/batch', auth, parkingController.batchCreateParkingSpaces)
 router.get('/parking/lots/:id/stats', auth, parkingController.getParkingLotStats)
+
+// 与微信小程序后端同步的路由
+router.post('/parking/lots/:id/sync-from-miniprogram', auth, parkingController.syncParkingSpacesFromMiniprogram)
+router.post('/parking/lots/:id/sync-to-miniprogram', auth, parkingController.syncParkingSpacesToMiniprogram)
+router.put('/parking/spaces/:id/status-with-sync', auth, parkingController.updateParkingSpaceStatusWithSync)
 
 // 地图管理路由
 router.get('/map/nodes', auth, mapController.getMapNodes)
@@ -62,9 +68,9 @@ router.get('/navigation/paths/:id', auth, navigationController.getNavigationPath
 router.post('/navigation/paths', auth, navigationController.createNavigationPath)
 router.put('/navigation/paths/:id', auth, navigationController.updateNavigationPath)
 router.delete('/navigation/paths/:id', auth, navigationController.deleteNavigationPath)
-router.get('/navigation/lots/:id/paths', auth, navigationController.getParkingLotPaths)
-router.post('/navigation/calculate-path', auth, navigationController.calculatePath)
-router.post('/navigation/entrance-to-space', auth, navigationController.navigateEntranceToSpace)
+router.get('/navigation/lots/:id/paths', auth, navigationController.getLotNavigationPaths)
+router.post('/navigation/calculate-path', auth, navigationController.calculateNavigationPath)
+router.post('/navigation/entrance-to-space', auth, navigationController.getNavigationToParkingSpace)
 router.post('/navigation/save-path', auth, navigationController.saveNavigationPath)
 
 // 数据模拟路由

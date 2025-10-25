@@ -164,7 +164,7 @@ const overviewData = reactive([
     color: '#67C23A'
   },
   {
-    title: '活跃用户数',
+    title: '总车位数',
     value: '1,245',
     desc: '较昨日上升 8%',
     icon: 'User',
@@ -182,6 +182,17 @@ const overviewData = reactive([
 // 时间范围选择
 const occupancyTimeRange = ref('day')
 const revenueTimeRange = ref('day')
+
+// 收入趋势数据
+const revenueTrendData = ref([])
+
+// 车位使用分布数据
+const distributionData = ref([
+  { value: 680, name: '已占用', itemStyle: { color: '#F56C6C' } },
+  { value: 320, name: '空闲', itemStyle: { color: '#67C23A' } },
+  { value: 50, name: '维护中', itemStyle: { color: '#E6A23C' } },
+  { value: 30, name: '预约', itemStyle: { color: '#409EFF' } }
+])
 
 // 车位占用率趋势图配置
 const occupancyChartOption = computed(() => ({
@@ -252,11 +263,13 @@ const revenueChartOption = computed(() => ({
   },
   xAxis: {
     type: 'category',
-    data: revenueTimeRange.value === 'day' 
-      ? ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00']
-      : revenueTimeRange.value === 'week'
-      ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-      : ['第1周', '第2周', '第3周', '第4周']
+    data: revenueTrendData.value.length > 0 
+      ? revenueTrendData.value.map(item => item._id)
+      : (revenueTimeRange.value === 'day' 
+        ? ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00']
+        : revenueTimeRange.value === 'week'
+        ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+        : ['第1周', '第2周', '第3周', '第4周'])
   },
   yAxis: {
     type: 'value',
@@ -269,11 +282,13 @@ const revenueChartOption = computed(() => ({
       name: '收入',
       type: 'bar',
       barWidth: '60%',
-      data: revenueTimeRange.value === 'day' 
-        ? [1200, 800, 2100, 3200, 2800, 1900, 600]
-        : revenueTimeRange.value === 'week'
-        ? [12000, 15000, 13500, 16000, 18000, 22000, 19000]
-        : [52000, 61000, 58000, 65000],
+      data: revenueTrendData.value.length > 0 
+        ? revenueTrendData.value.map(item => item.revenue)
+        : (revenueTimeRange.value === 'day' 
+          ? [1200, 800, 2100, 3200, 2800, 1900, 600]
+          : revenueTimeRange.value === 'week'
+          ? [12000, 15000, 13500, 16000, 18000, 22000, 19000]
+          : [52000, 61000, 58000, 65000]),
       itemStyle: {
         color: '#67C23A'
       }
@@ -282,7 +297,7 @@ const revenueChartOption = computed(() => ({
 }))
 
 // 车位使用分布图配置
-const distributionChartOption = reactive({
+const distributionChartOption = computed(() => ({
   tooltip: {
     trigger: 'item',
     formatter: '{a} <br/>{b}: {c} ({d}%)'
@@ -316,15 +331,10 @@ const distributionChartOption = reactive({
       labelLine: {
         show: false
       },
-      data: [
-        { value: 680, name: '已占用', itemStyle: { color: '#F56C6C' } },
-        { value: 320, name: '空闲', itemStyle: { color: '#67C23A' } },
-        { value: 50, name: '维护中', itemStyle: { color: '#E6A23C' } },
-        { value: 30, name: '预约', itemStyle: { color: '#409EFF' } }
-      ]
+      data: distributionData.value
     }
   ]
-})
+}))
 
 // 高峰时段分析图配置
 const peakHoursChartOption = reactive({
@@ -363,18 +373,32 @@ const peakHoursChartOption = reactive({
 // 获取仪表盘数据
 const fetchDashboardData = async () => {
   try {
-    const { data } = await getDashboardData()
-    // 更新数据概览
-    if (data.overview) {
-      overviewData.forEach((item, index) => {
-        if (data.overview[index]) {
-          item.value = data.overview[index].value
-          item.desc = data.overview[index].desc
-        }
-      })
+    const response = await getDashboardData()
+    if (response.success) {
+      // 更新数据概览
+      if (response.data.overview) {
+        overviewData[0].value = response.data.overview.totalOccupancyRate + '%'
+        overviewData[1].value = response.data.overview.todayTransactionCount
+        overviewData[2].value = response.data.overview.totalSpaces
+        overviewData[3].value = '¥' + response.data.overview.todayRevenue
+      }
+      
+      // 更新收入趋势数据
+      if (response.data.revenueTrend) {
+        revenueTrendData.value = response.data.revenueTrend
+      }
+      
+      // 更新车位使用分布数据
+      if (response.data.lotStats) {
+        distributionData.value = response.data.lotStats.map(item => ({
+          name: item.name,
+          value: item.occupiedSpaces
+        }))
+      }
     }
   } catch (error) {
     console.error('获取仪表盘数据失败:', error)
+    ElMessage.error('获取仪表盘数据失败')
   }
 }
 

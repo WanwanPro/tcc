@@ -1,61 +1,92 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const multer = require('multer');
+const express = require('express')
+const mongoose = require('mongoose')
+const cors = require('cors')
+const path = require('path')
+require('dotenv').config()
 
-// 配置文件上传
-const upload = multer({ storage: multer.memoryStorage() });
+// 导入路由
+const userRoutes = require('./routes/userRoutes')
+const parkingRoutes = require('./routes/spaceRoutes')
+const pathRoutes = require('./routes/pathRoutes')
+const imageRoutes = require('./routes/imageRoutes')
 
-// 加载环境变量
-dotenv.config();
+// 导入中间件
+// const { errorHandler } = require('./middleware/errorHandler')
+// const { notFound } = require('./middleware/notFound')
 
 // 创建Express应用
-const app = express();
-const PORT = process.env.PORT || 3001;
+const app = express()
 
-// 中间件
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 跨域配置
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:5002', 'https://servicewechat.com', 'https://tcb-api.tencentcloudapi.com'],
+  credentials: true
+}))
 
-// 数据库连接
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_system', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
-});
+// 解析JSON
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// 基本路由
-app.get('/', (req, res) => {
-  res.json({ message: '智能停车场车位引导与导航系统API' });
-});
+// 静态文件服务
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+// app.use(express.static(path.join(__dirname, 'public')))
 
 // API路由
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/spaces', require('./routes/spaceRoutes'));
-app.use('/api/path', require('./routes/pathRoutes'));
-app.use('/api/image', require('./routes/imageRoutes'));
+app.use('/api/users', userRoutes)
+app.use('/api/spaces', parkingRoutes)
+app.use('/api/paths', pathRoutes)
+app.use('/api/images', imageRoutes)
 
-// 错误处理中间件
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: '服务器内部错误' });
-});
+// 健康检查
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'API is running',
+    timestamp: new Date().toISOString()
+  })
+})
 
 // 404处理
-app.use('*', (req, res) => {
-  res.status(404).json({ message: '接口不存在' });
-});
+// app.use(notFound)
+
+// 错误处理
+// app.use(errorHandler)
+
+// 数据库连接
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_system', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    console.log(`MongoDB Connected: ${conn.connection.host}`)
+  } catch (error) {
+    console.error(`Error: ${error.message}`)
+    process.exit(1)
+  }
+}
 
 // 启动服务器
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3001
 
-module.exports = app;
+const startServer = async () => {
+  await connectDB()
+  
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`)
+  })
+}
+
+startServer()
+
+// 处理未捕获的异常
+process.on('uncaughtException', (err) => {
+  console.log(`UNCAUGHT EXCEPTION: ${err}`)
+  process.exit(1)
+})
+
+// 处理未处理的Promise拒绝
+process.on('unhandledRejection', (err) => {
+  console.log(`UNHANDLED REJECTION: ${err}`)
+  process.exit(1)
+})

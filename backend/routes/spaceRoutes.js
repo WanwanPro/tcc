@@ -8,4 +8,7 @@ router.get('/', spaceController.getAllSpaces);
 // 更新车位状态
 router.post('/update', spaceController.updateSpaceStatus);
 
+// 同步所有车位数据到System后台
+router.post('/sync', spaceController.syncAllSpacesToSystem);
+
 module.exports = router;

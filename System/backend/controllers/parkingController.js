@@ -1,6 +1,8 @@
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
 const { generatePagination } = require('../utils/helpers')
+const miniprogramApiAdapter = require('../services/miniprogramApiAdapterService')
+const dataModelMappingService = require('../services/dataModelMappingService')
 
 // 获取所有停车场
 const getParkingLots = async (req, res) => {
@@ -383,7 +385,7 @@ const getParkingSpaces = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        parkingSpaces,
+        spaces: parkingSpaces,
         pagination: generatePagination(page, limit, total)
       }
     })
@@ -635,6 +637,174 @@ const deleteParkingSpace = async (req, res) => {
   }
 }
 
+// 从微信小程序后端同步停车位数据
+const syncParkingSpacesFromMiniprogram = async (req, res) => {
+  try {
+    const { parkingId } = req.params
+    
+    // 从微信小程序后端获取停车位数据
+    const miniprogramSpaces = await miniprogramApiAdapter.getParkingSpacesFromMiniprogram(parkingId)
+    
+    // 获取System后台中该停车场的所有停车位
+    const systemSpaces = await ParkingSpace.find({ lotId: parkingId })
+    
+    // 创建映射表，便于快速查找
+    const systemSpacesMap = new Map()
+    systemSpaces.forEach(space => {
+      systemSpacesMap.set(space.spaceId, space)
+    })
+    
+    // 统计信息
+    let createdCount = 0
+    let updatedCount = 0
+    let skippedCount = 0
+    const errors = []
+    
+    // 处理从微信小程序获取的每个停车位
+    for (const miniprogramSpace of miniprogramSpaces) {
+      try {
+        // 使用数据模型映射服务将微信小程序数据转换为System格式
+        const systemSpaceData = dataModelMappingService.mapParkingSpaceToSystem(miniprogramSpace)
+        
+        const systemSpace = systemSpacesMap.get(miniprogramSpace.spaceId)
+        
+        if (systemSpace) {
+          // 更新现有停车位
+          systemSpace.status = systemSpaceData.status
+          systemSpace.position = systemSpaceData.position
+          await systemSpace.save()
+          updatedCount++
+        } else {
+          // 创建新停车位
+          const newSpace = new ParkingSpace({
+            spaceId: systemSpaceData.spaceId,
+            lotId: parkingId,
+            floorId: systemSpaceData.floorId || 1,
+            area: systemSpaceData.area || '',
+            type: systemSpaceData.type || 'standard',
+            status: systemSpaceData.status,
+            position: systemSpaceData.position || { x: 0, y: 0 },
+            dimensions: systemSpaceData.dimensions || { width: 2.5, height: 5 },
+            features: systemSpaceData.features || []
+          })
+          await newSpace.save()
+          createdCount++
+        }
+      } catch (error) {
+        console.error(`处理停车位 ${miniprogramSpace.spaceId} 时出错:`, error.message)
+        errors.push({ spaceId: miniprogramSpace.spaceId, error: error.message })
+      }
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: '数据同步完成',
+      data: {
+        total: miniprogramSpaces.length,
+        created: createdCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+        errors: errors.length,
+        errorDetails: errors
+      }
+    })
+  } catch (error) {
+    console.error('从微信小程序后端同步停车位数据失败:', error.message)
+    res.status(500).json({
+      success: false,
+      message: '数据同步失败',
+      error: error.message
+    })
+  }
+}
+
+// 同步停车位状态到微信小程序后端
+const syncParkingSpacesToMiniprogram = async (req, res) => {
+  try {
+    const { parkingId } = req.params
+    
+    // 获取System后台中该停车场的所有停车位
+    const systemSpaces = await ParkingSpace.find({ lotId: parkingId })
+    
+    // 使用数据模型映射服务将System数据转换为微信小程序格式
+    const miniprogramSpaces = systemSpaces.map(space => 
+      dataModelMappingService.mapParkingSpaceToMiniprogram(space)
+    )
+    
+    // 同步到微信小程序后端
+    const syncResult = await miniprogramApiAdapter.syncParkingSpacesToMiniprogram(miniprogramSpaces)
+    
+    res.status(200).json({
+      success: true,
+      message: '数据同步完成',
+      data: syncResult
+    })
+  } catch (error) {
+    console.error('同步停车位状态到微信小程序后端失败:', error.message)
+    res.status(500).json({
+      success: false,
+      message: '数据同步失败',
+      error: error.message
+    })
+  }
+}
+
+// 更新停车位状态并同步到微信小程序后端
+const updateParkingSpaceStatusWithSync = async (req, res) => {
+  try {
+    const { status } = req.body
+    
+    // 查找停车位
+    const parkingSpace = await ParkingSpace.findById(req.params.id)
+    
+    if (!parkingSpace) {
+      return res.status(404).json({
+        success: false,
+        message: '停车位不存在'
+      })
+    }
+    
+    // 更新System后台中的停车位状态
+    parkingSpace.status = status
+    await parkingSpace.save()
+    
+    // 同步到微信小程序后端
+    try {
+      // 使用数据模型映射服务转换状态
+      const miniprogramStatus = dataModelMappingService.mapStatusToMiniprogram(status)
+      await miniprogramApiAdapter.updateParkingSpaceStatusInMiniprogram(
+        parkingSpace.spaceId, 
+        miniprogramStatus
+      )
+    } catch (syncError) {
+      console.error('同步到微信小程序后端失败:', syncError.message)
+      // 即使同步失败，也返回成功，但记录错误
+      return res.status(200).json({
+        success: true,
+        message: '停车位状态更新成功，但同步到微信小程序后端失败',
+        data: parkingSpace,
+        syncError: syncError.message
+      })
+    }
+    
+    // 返回停车位信息
+    const populatedSpace = await ParkingSpace.findById(parkingSpace._id)
+      .populate('lotId', 'name')
+    
+    res.status(200).json({
+      success: true,
+      message: '停车位状态更新成功并已同步到微信小程序后端',
+      data: populatedSpace
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    })
+  }
+}
+
 module.exports = {
   getParkingLots,
   getParkingLot,
@@ -647,5 +817,8 @@ module.exports = {
   createParkingSpace,
   createParkingSpaces,
   updateParkingSpace,
-  deleteParkingSpace
+  deleteParkingSpace,
+  syncParkingSpacesFromMiniprogram,
+  syncParkingSpacesToMiniprogram,
+  updateParkingSpaceStatusWithSync
 }

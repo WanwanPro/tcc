@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 const { User, ParkingLot, ParkingSpace, SystemConfig } = require('../models')
+const Admin = require('../models/Admin')
 
 // 初始化数据库数据
 const initializeDatabase = async () => {
@@ -32,6 +33,23 @@ const initializeDatabase = async () => {
       
       await admin.save()
       console.log('已创建默认管理员账户: admin / admin123')
+    }
+
+    // 创建Admin模型的管理员用户
+    const adminModelExists = await Admin.findOne({ username: 'admin' })
+    if (!adminModelExists) {
+      const admin = new Admin({
+        username: 'admin',
+        password: 'admin123',
+        name: '系统管理员',
+        email: 'admin@parking.com',
+        role: 'super_admin',
+        permissions: ['read', 'write', 'delete', 'admin'],
+        status: 'active'
+      })
+      
+      await admin.save()
+      console.log('已创建Admin模型管理员账户: admin / admin123')
     }
 
     // 创建默认系统配置

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const NavigationPath = require('../models/NavigationPath')
 const MapNode = require('../models/MapNode')
 const ParkingLot = require('../models/ParkingLot')
@@ -8,6 +9,7 @@ const {
   dijkstra,
   aStar
 } = require('../utils/helpers')
+const dataModelMappingService = require('../services/dataModelMappingService')
 
 // 获取所有导航路径
 const getNavigationPaths = async (req, res) => {
@@ -20,15 +22,15 @@ const getNavigationPaths = async (req, res) => {
     const query = {}
     
     if (req.query.lotId) {
-      query.lotId = req.query.lotId
+      query.lotId = new mongoose.Types.ObjectId(req.query.lotId)
     }
     
     if (req.query.startNodeId) {
-      query.startNodeId = req.query.startNodeId
+      query.startNode = new mongoose.Types.ObjectId(req.query.startNodeId)
     }
     
     if (req.query.endNodeId) {
-      query.endNodeId = req.query.endNodeId
+      query.endNode = new mongoose.Types.ObjectId(req.query.endNodeId)
     }
     
     if (req.query.search) {
@@ -130,13 +132,13 @@ const createNavigationPath = async (req, res) => {
     const navigationPath = new NavigationPath({
       pathId,
       lotId,
-      startNodeId,
-      endNodeId,
-      name: name || '',
+      startNode: startNodeId,
+      endNode: endNodeId,
+      name: name || pathId, // 使用pathId作为默认名称
       description: description || '',
-      path,
-      distance: distance || 0,
-      estimatedTime: estimatedTime || 0,
+      path: path || [],
+      totalDistance: distance || 0,
+      totalTime: estimatedTime || 0,
       properties: properties || {}
     })
     
@@ -179,13 +181,13 @@ const updateNavigationPath = async (req, res) => {
     }
     
     // 更新字段
-    if (startNodeId) navigationPath.startNodeId = startNodeId
-    if (endNodeId) navigationPath.endNodeId = endNodeId
+    if (startNodeId) navigationPath.startNode = startNodeId
+    if (endNodeId) navigationPath.endNode = endNodeId
     if (name) navigationPath.name = name
     if (description) navigationPath.description = description
     if (path) navigationPath.path = path
-    if (distance !== undefined) navigationPath.distance = distance
-    if (estimatedTime !== undefined) navigationPath.estimatedTime = estimatedTime
+    if (distance !== undefined) navigationPath.totalDistance = distance
+    if (estimatedTime !== undefined) navigationPath.totalTime = estimatedTime
     if (properties) navigationPath.properties = properties
     
     await navigationPath.save()
@@ -367,9 +369,12 @@ const calculateNavigationPath = async (req, res) => {
       algorithm
     }
     
+    // 使用数据模型映射服务将路径数据转换为微信小程序格式
+    const miniprogramPathData = dataModelMappingService.mapPathToMiniprogram(pathData)
+    
     res.status(200).json({
       success: true,
-      data: pathData
+      data: miniprogramPathData
     })
   } catch (error) {
     console.error(error)
@@ -486,9 +491,12 @@ const getNavigationToParkingSpace = async (req, res) => {
       finalDistance: pathResult.data.distance + minDistance
     }
     
+    // 使用数据模型映射服务将导航数据转换为微信小程序格式
+    const miniprogramNavigationData = dataModelMappingService.mapPathToMiniprogram(navigationData)
+    
     res.status(200).json({
       success: true,
-      data: navigationData
+      data: miniprogramNavigationData
     })
   } catch (error) {
     console.error(error)

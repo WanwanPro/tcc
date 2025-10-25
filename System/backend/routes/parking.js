@@ -1,4 +1,5 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
 const auth = require('../middleware/auth')
@@ -492,19 +493,19 @@ router.get('/stats/:lotId', async (req, res) => {
     
     // 按区域统计
     const areaStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       { $group: { _id: '$area', total: { $sum: 1 }, available: { $sum: { $cond: [{ $eq: ['$status', 'available'] }, 1, 0] } } } }
     ])
     
     // 按类型统计
     const typeStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       { $group: { _id: '$type', total: { $sum: 1 }, available: { $sum: { $cond: [{ $eq: ['$status', 'available'] }, 1, 0] } } } }
     ])
     
     // 按楼层统计
     const floorStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       { $group: { _id: '$floorId', total: { $sum: 1 }, available: { $sum: { $cond: [{ $eq: ['$status', 'available'] }, 1, 0] } } } }
     ])
     

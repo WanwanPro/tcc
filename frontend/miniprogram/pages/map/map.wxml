@@ -5,28 +5,37 @@
   </view>
 
   <view class="map-container" style="height: {{mapHeight}}px;">
-    <!-- 简化的车位地图展示 -->
-    <view class="parking-map">
-      <view 
-        wx:for="{{spaces}}" 
-        wx:key="spaceId"
-        class="parking-space {{item.status === '空闲' ? 'free' : 'occupied'}}"
-        data-space-id="{{item.spaceId}}"
-        bindtap="selectSpace"
-        style="left: {{item.position.x}}px; top: {{item.position.y}}px;"
-      >
-        <text class="space-id">{{item.spaceId}}</text>
+    <!-- 停车场地图展示 -->
+    <scroll-view class="parking-map" scroll-x="true" scroll-y="true" style="width: 100%; height: 100%;" scroll-left="{{scrollLeft}}" scroll-top="{{scrollTop}}">
+      <view style="width: {{mapWidth}}px; height: {{mapHeight}}px; position: relative;">
+        <view 
+          wx:for="{{spaces}}" 
+          wx:key="spaceId"
+          class="parking-space {{item.status === 'available' ? 'free' : 'occupied'}} {{selectedSpace.spaceId === item.spaceId ? 'selected' : ''}}"
+          data-space-id="{{item.spaceId}}"
+          bindtap="selectSpace"
+          style="left: {{item.position.x}}px; top: {{item.position.y}}px; width: {{item.position.width}}px; height: {{item.position.height}}px;"
+        >
+          <text class="space-id">{{item.spaceId}}</text>
+        </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
 
   <view class="space-info" wx:if="{{selectedSpace}}">
     <text>车位ID: {{selectedSpace.spaceId}}</text>
-    <text>状态: {{selectedSpace.status}}</text>
-    <button class="nav-btn">导航到此车位</button>
+    <text>状态: {{selectedSpace.status === 'available' ? '空闲' : '占用'}}</text>
+    <text>区域: {{selectedSpace.area}}</text>
+    <text>楼层: {{selectedSpace.floorId}}</text>
+    <button class="nav-btn" bindtap="navigateToSpace">导航到此车位</button>
   </view>
 
   <view class="actions">
     <button class="refresh-btn" bindtap="refreshSpaces">刷新</button>
+    <button class="find-btn" bindtap="findNearestFreeSpace">找空位</button>
+    <view class="scale-controls">
+      <button class="scale-btn" data-type="out" bindtap="scaleMap">缩小</button>
+      <button class="scale-btn" data-type="in" bindtap="scaleMap">放大</button>
+    </view>
   </view>
 </view>

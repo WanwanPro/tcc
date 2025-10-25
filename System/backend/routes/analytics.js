@@ -1,4 +1,5 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const Analytics = require('../models/Analytics')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
@@ -266,7 +267,7 @@ router.post('/reports/generate/occupancy', async (req, res) => {
     
     // 获取各楼层占用情况
     const floorStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       {
         $group: {
           _id: '$floorId',
@@ -291,7 +292,7 @@ router.post('/reports/generate/occupancy', async (req, res) => {
     
     // 获取各区域占用情况
     const areaStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       {
         $group: {
           _id: '$area',
@@ -316,7 +317,7 @@ router.post('/reports/generate/occupancy', async (req, res) => {
     
     // 获取各类型停车位占用情况
     const typeStats = await ParkingSpace.aggregate([
-      { $match: { lotId: mongoose.Types.ObjectId(lotId) } },
+      { $match: { lotId: new mongoose.Types.ObjectId(lotId) } },
       {
         $group: {
           _id: '$type',
@@ -732,7 +733,7 @@ router.get('/dashboard/stats', async (req, res) => {
     
     // 获取各停车场占用率
     const lotStats = await ParkingLot.aggregate([
-      ...(lotId ? [{ $match: { _id: mongoose.Types.ObjectId(lotId) } }] : []),
+      ...(lotId ? [{ $match: { _id: new mongoose.Types.ObjectId(lotId) } }] : []),
       {
         $lookup: {
           from: "parkingspaces",
@@ -755,15 +756,21 @@ router.get('/dashboard/stats', async (req, res) => {
         }
       },
       {
-        $addFields: {
-          occupancyRate: {
-            $multiply: [
-              { $divide: ["$occupiedSpaces", "$totalSpaces"] },
-              100
-            ]
+          $addFields: {
+            occupancyRate: {
+              $cond: {
+                if: { $eq: ["$totalSpaces", 0] },
+                then: 0,
+                else: {
+                  $multiply: [
+                    { $divide: ["$occupiedSpaces", "$totalSpaces"] },
+                    100
+                  ]
+                }
+              }
+            }
           }
-        }
-      },
+        },
       {
         $project: {
           name: 1,

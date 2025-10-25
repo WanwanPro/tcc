@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // 连接数据库
-mongoose.connect('mongodb://192.168.0.78:27017/parking_system', {
+mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 }).then(() => {
