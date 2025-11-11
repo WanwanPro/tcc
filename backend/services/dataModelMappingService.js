@@ -171,6 +171,48 @@ class DataModelMappingService {
   batchMapParkingSpacesToMiniprogram(systemSpaces) {
     return systemSpaces.map(space => this.mapParkingSpaceToMiniprogram(space));
   }
+
+  /**
+   * 将微信小程序状态转换为System后台状态
+   * @param {String} miniprogramStatus - 微信小程序状态（中文）
+   * @returns {String} System后台状态（英文）
+   */
+  mapStatusToSystem(miniprogramStatus) {
+    const statusMapping = {
+      '空闲': 'available',
+      '占用': 'occupied',
+      '预定': 'reserved'
+    };
+    return statusMapping[miniprogramStatus] || 'available';
+  }
+
+  /**
+   * 将System后台状态转换为微信小程序状态
+   * @param {String} systemStatus - System后台状态（英文）
+   * @returns {String} 微信小程序状态（中文）
+   */
+  mapStatusToMiniprogram(systemStatus) {
+    const statusMapping = {
+      'available': '空闲',
+      'occupied': '占用',
+      'reserved': '预定',
+      'maintenance': '占用' // 维护状态在微信小程序中显示为占用
+    };
+    return statusMapping[systemStatus] || '空闲';
+  }
+
+  /**
+   * 计算区域（根据位置计算）
+   * @param {Object} position - 位置 {x, y}
+   * @returns {String} 区域名称
+   */
+  calculateArea(position) {
+    // 简单的区域划分逻辑，可根据实际需求修改
+    if (position.x < 100 && position.y < 100) return 'A区';
+    if (position.x < 200 && position.y < 200) return 'B区';
+    if (position.x < 300 && position.y < 300) return 'C区';
+    return 'D区';
+  }
 }
 
 module.exports = new DataModelMappingService();

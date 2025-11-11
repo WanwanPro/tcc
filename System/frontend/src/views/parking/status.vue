@@ -63,17 +63,18 @@
       
       <div class="parking-map">
         <div class="map-container">
-          <div class="area-section" v-for="area in parkingAreas" :key="area.id">
-            <h3>{{ area.name }}</h3>
+          <div class="area-section" v-for="area in parkingAreas" :key="safeGet(area, 'id', '')">
+            <h3>{{ safeGet(area, 'name', '未知区域') }}</h3>
             <div class="parking-grid">
               <div 
-                v-for="space in area.spaces" 
-                :key="space.id"
-                :class="['parking-space', space.status, { 'selected': selectedSpace === space.id }]"
+                v-for="space in safeGet(area, 'spaces', [])" 
+                :key="safeGet(space, 'id', '')"
+                :class="['parking-space', safeGet(space, 'status', ''), { 'selected': selectedSpace === safeGet(space, 'id', '') }]"
                 @click="selectSpace(space)"
-                :title="`${space.number} - ${getStatusText(space.status)}`"
+                @dblclick="toggleSpaceStatus(space)"
+                :title="`${safeGet(space, 'number', '')} - ${getStatusText(safeGet(space, 'status', ''))} (双击切换状态)`"
               >
-                {{ space.number }}
+                {{ safeGet(space, 'number', '') }}
               </div>
             </div>
           </div>
@@ -83,19 +84,19 @@
       <div class="space-details" v-if="selectedSpaceInfo">
         <el-card shadow="hover">
           <template #header>
-            <span>车位详情 - {{ selectedSpaceInfo.number }}</span>
+            <span>车位详情 - {{ safeGet(selectedSpaceInfo, 'number', '') }}</span>
           </template>
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="车位编号">{{ selectedSpaceInfo.number }}</el-descriptions-item>
-            <el-descriptions-item label="所在区域">{{ selectedSpaceInfo.area }}</el-descriptions-item>
-            <el-descriptions-item label="车位类型">{{ selectedSpaceInfo.type }}</el-descriptions-item>
+            <el-descriptions-item label="车位编号">{{ safeGet(selectedSpaceInfo, 'number', '') }}</el-descriptions-item>
+            <el-descriptions-item label="所在区域">{{ safeGet(selectedSpaceInfo, 'area', '') }}</el-descriptions-item>
+            <el-descriptions-item label="车位类型">{{ safeGet(selectedSpaceInfo, 'type', '') }}</el-descriptions-item>
             <el-descriptions-item label="当前状态">
-              <el-tag :type="getStatusType(selectedSpaceInfo.status)">{{ getStatusText(selectedSpaceInfo.status) }}</el-tag>
+              <el-tag :type="getStatusType(safeGet(selectedSpaceInfo, 'status', ''))">{{ getStatusText(safeGet(selectedSpaceInfo, 'status', '')) }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="车牌号" v-if="selectedSpaceInfo.plateNumber">{{ selectedSpaceInfo.plateNumber }}</el-descriptions-item>
-            <el-descriptions-item label="入场时间" v-if="selectedSpaceInfo.entryTime">{{ selectedSpaceInfo.entryTime }}</el-descriptions-item>
-            <el-descriptions-item label="预计费用" v-if="selectedSpaceInfo.estimatedFee">{{ selectedSpaceInfo.estimatedFee }}元</el-descriptions-item>
-            <el-descriptions-item label="停车时长" v-if="selectedSpaceInfo.duration">{{ selectedSpaceInfo.duration }}</el-descriptions-item>
+            <el-descriptions-item label="车牌号" v-if="selectedSpaceInfo?.plateNumber">{{ selectedSpaceInfo.plateNumber }}</el-descriptions-item>
+            <el-descriptions-item label="入场时间" v-if="selectedSpaceInfo?.entryTime">{{ selectedSpaceInfo.entryTime }}</el-descriptions-item>
+            <el-descriptions-item label="预计费用" v-if="selectedSpaceInfo?.estimatedFee">{{ selectedSpaceInfo.estimatedFee }}元</el-descriptions-item>
+            <el-descriptions-item label="停车时长" v-if="selectedSpaceInfo?.duration">{{ selectedSpaceInfo.duration }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </div>
@@ -104,10 +105,11 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onActivated } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
+import { safeGet, safeGetArray, safeFormatDate, safeParseNumber } from '@/utils/safeAccess'
 
 export default {
   name: 'ParkingStatus',
@@ -120,12 +122,12 @@ export default {
     const selectedSpaceInfo = ref(null)
     
     const statusData = ref({
-      total: 200,
-      occupied: 150,
-      available: 45,
-      reserved: 3,
-      maintenance: 2,
-      occupancyRate: 75
+      total: 0,
+      occupied: 0,
+      available: 0,
+      reserved: 0,
+      maintenance: 0,
+      occupancyRate: 0
     })
     
     const filterForm = reactive({
@@ -134,18 +136,7 @@ export default {
       status: ''
     })
     
-    const parkingAreas = ref([
-      {
-        id: 'A',
-        name: 'A区',
-        spaces: []
-      },
-      {
-        id: 'B',
-        name: 'B区',
-        spaces: []
-      }
-    ])
+    const parkingAreas = ref([])
     
     // 生成模拟车位数据
     const generateParkingSpaces = () => {
@@ -199,87 +190,187 @@ export default {
     
     // 选择车位
     const selectSpace = (space) => {
-      selectedSpace.value = space.id
+      if (!space) return;
+      selectedSpace.value = safeGet(space, 'id', '')
       selectedSpaceInfo.value = space
+    }
+    
+    // 切换车位状态
+    const toggleSpaceStatus = async (space) => {
+      if (!space) return;
+      
+      try {
+        // 确定新状态
+        const currentStatus = safeGet(space, 'status', '')
+        let newStatus = 'available'
+        
+        if (currentStatus === 'available') {
+          newStatus = 'occupied'
+        } else if (currentStatus === 'occupied') {
+          newStatus = 'available'
+        }
+        
+        // 调用API更新状态
+        const response = await request.put(`/admin/parking/spaces/${safeGet(space, 'id', '')}`, {
+          status: newStatus
+        })
+        
+        if (safeGet(response, 'success')) {
+          // 更新本地状态
+          space.status = newStatus
+          
+          // 如果是占用状态，添加模拟车牌号和入场时间
+          if (newStatus === 'occupied') {
+            space.plateNumber = '京A' + Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+            space.entryTime = new Date().toLocaleString()
+            space.estimatedFee = '0.00'
+            space.duration = '0分钟'
+          } else {
+            // 如果是空闲状态，清除相关信息
+            space.plateNumber = null
+            space.entryTime = null
+            space.estimatedFee = null
+            space.duration = null
+          }
+          
+          // 更新统计数据
+          updateStatusData()
+          
+          ElMessage.success(`车位状态已更新为${getStatusText(newStatus)}`)
+        } else {
+          ElMessage.error(safeGet(response, 'message', '更新车位状态失败'))
+        }
+      } catch (error) {
+        console.error('切换车位状态错误:', error)
+        ElMessage.error('切换车位状态失败')
+      }
     }
     
     // 刷新数据
     const refreshData = async () => {
       loading.value = true
       try {
-        // 获取所有停车场数据
-        const response = await request.get('/admin/parking/spaces?limit=1000')
+        // 获取所有停车场数据（添加时间戳防止缓存）
+        const response = await request.get('/admin/parking/spaces?limit=1000&_t=' + Date.now())
         
-        if (response.success) {
-          const spaces = response.data.spaces
+        console.log('[车位状态] 原始API响应:', response)
+        
+        if (safeGet(response, 'success')) {
+          // API返回格式：{ success: true, data: { spaces: [...], pagination: {...} } }
+          // 或者：{ success: true, data: { items: [...], ... } }
+          // 兼容多种格式
+          let spaces = []
           
-          // 按区域分组车位
-          const areas = {
-            'A': { id: 'A', name: 'A区', spaces: [] },
-            'B': { id: 'B', name: 'B区', spaces: [] }
+          // 优先使用 data.spaces
+          if (response.data && response.data.spaces && Array.isArray(response.data.spaces)) {
+            spaces = response.data.spaces
+          } 
+          // 其次使用 data.items
+          else if (response.data && response.data.items && Array.isArray(response.data.items)) {
+            spaces = response.data.items
           }
+          // 最后尝试用safeGet
+          else {
+            const spacesFromSafeGet = safeGet(response, 'data.spaces', [])
+            const itemsFromSafeGet = safeGet(response, 'data.items', [])
+            spaces = Array.isArray(spacesFromSafeGet) && spacesFromSafeGet.length > 0 
+              ? spacesFromSafeGet 
+              : (Array.isArray(itemsFromSafeGet) && itemsFromSafeGet.length > 0 ? itemsFromSafeGet : [])
+          }
+          
+          const total = response.data?.pagination?.total || response.data?.total || spaces.length
+          
+          console.log('[车位状态] API返回数据:', {
+            success: safeGet(response, 'success'),
+            total: total,
+            spacesCount: spaces.length,
+            firstSpace: spaces[0],
+            dataKeys: response.data ? Object.keys(response.data) : [],
+            hasSpaces: !!(response.data && response.data.spaces),
+            hasItems: !!(response.data && response.data.items),
+            spacesType: Array.isArray(spaces) ? 'array' : typeof spaces,
+            spacesLength: spaces.length
+          })
+          
+          if (spaces.length === 0) {
+            console.warn('[车位状态] 警告：未找到车位数据！', {
+              responseData: response.data,
+              responseKeys: response ? Object.keys(response) : []
+            })
+          }
+          
+          // 按区域分组车位（支持所有区域）
+          const areas = {}
           
           // 处理车位数据
           spaces.forEach(space => {
             // 提取区域信息，从spaceId或area字段
             let areaId = 'A' // 默认区域
-            if (space.area) {
-              // 处理"A区"、"B区"这样的格式
-              const areaChar = space.area.substring(0, 1).toUpperCase()
-              if (areaChar === 'A' || areaChar === 'B') {
+            if (safeGet(space, 'area')) {
+              // 处理"A区"、"B区"、"C区"这样的格式
+              const areaStr = safeGet(space, 'area', '')
+              const areaChar = areaStr.substring(0, 1).toUpperCase()
+              // 支持 A, B, C, D 等所有区域
+              if (areaChar && /^[A-Z]$/.test(areaChar)) {
                 areaId = areaChar
               }
-            } else if (space.spaceId) {
+            } else if (safeGet(space, 'spaceId')) {
               // 从spaceId中提取区域信息
-              const spaceIdStr = space.spaceId.toString()
-              // 如果spaceId是数字，根据数字范围判断区域
-              const spaceNum = parseInt(spaceIdStr)
-              if (!isNaN(spaceNum)) {
-                // 根据之前的导入数据，1-55是A区，56-113是B区
-                if (spaceNum >= 56) {
+              const spaceIdStr = safeGet(space, 'spaceId', '').toString()
+              // 如果spaceId是数字，根据数字范围判断区域（兼容旧数据）
+              const spaceNum = parseInt(spaceIdStr.replace(/\D/g, ''))
+              if (!isNaN(spaceNum) && spaceNum > 0) {
+                // 根据坐标或编号分配区域
+                const y = safeGet(space, 'position.y', 0) || safeGet(space, 'coordinates.y', 0)
+                if (y < 400) {
+                  areaId = 'A'
+                } else if (y < 700) {
                   areaId = 'B'
                 } else {
-                  areaId = 'A'
+                  areaId = 'C'
                 }
               } else {
                 // 如果spaceId包含字母，取第一个字母
                 const firstChar = spaceIdStr.substring(0, 1).toUpperCase()
-                if (firstChar === 'A' || firstChar === 'B') {
+                if (/^[A-Z]$/.test(firstChar)) {
                   areaId = firstChar
                 }
               }
             }
             
-            // 只处理A区和B区的车位，忽略其他区域
+            // 动态创建区域（支持所有区域）
             if (!areas[areaId]) {
-              console.log(`跳过非A区和B区的车位: ${space.spaceId}, 区域: ${areaId}`)
-              return // 跳过非A区和B区的车位
+              areas[areaId] = { 
+                id: areaId, 
+                name: `${areaId}区`, 
+                spaces: [] 
+              }
             }
             
             // 转换状态
             let status = 'available'
-            if (space.status === 'occupied' || space.isOccupied) {
+            if (safeGet(space, 'status') === 'occupied' || safeGet(space, 'isOccupied')) {
               status = 'occupied'
             }
             
             // 转换车位类型
             let type = 'normal'
-            if (space.type === 'charging' || space.type === '充电车位') {
+            if (safeGet(space, 'type') === 'charging' || safeGet(space, 'type') === '充电车位') {
               type = 'charging'
-            } else if (space.type === 'accessible' || space.type === '无障碍车位') {
+            } else if (safeGet(space, 'type') === 'accessible' || safeGet(space, 'type') === '无障碍车位') {
               type = 'accessible'
-            } else if (space.type === 'vip' || space.type === 'VIP车位') {
+            } else if (safeGet(space, 'type') === 'vip' || safeGet(space, 'type') === 'VIP车位') {
               type = 'vip'
             }
             
             // 提取车位编号
-            let spaceNumber = space.spaceId || space.spaceNumber || `${areaId}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
+            let spaceNumber = safeGet(space, 'spaceId', safeGet(space, 'spaceNumber', `${areaId}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`))
             
             // 创建车位对象
             const parkingSpace = {
-              id: space._id || space.id,
+              id: safeGet(space, '_id', safeGet(space, 'id', '')),
               number: spaceNumber,
-              area: areas[areaId].name,
+              area: safeGet(areas[areaId], 'name', '未知区域'),
               status: status,
               type: type,
               plateNumber: status === 'occupied' ? '京A' + Math.floor(Math.random() * 10000).toString().padStart(4, '0') : null,
@@ -292,31 +383,38 @@ export default {
           })
           
           // 打印调试信息
-          console.log('A区车位数量:', areas['A'].spaces.length)
-          console.log('B区车位数量:', areas['B'].spaces.length)
-          console.log('A区车位:', areas['A'].spaces.slice(0, 5))
+          console.log('区域统计:', Object.keys(areas).map(areaId => ({
+            area: areaId,
+            count: areas[areaId].spaces.length
+          })))
           
-          // 更新停车区域数据
-          parkingAreas.value = Object.values(areas)
+          // 更新停车区域数据（按区域ID排序）
+          parkingAreas.value = Object.values(areas).sort((a, b) => {
+            return a.id.localeCompare(b.id)
+          })
           
           // 对每个区域的车位按spaceId进行排序
           parkingAreas.value.forEach(area => {
-            area.spaces.sort((a, b) => {
-              // 提取数字部分进行比较
-              const numA = parseInt(a.number.replace(/\D/g, ''))
-              const numB = parseInt(b.number.replace(/\D/g, ''))
-              return numA - numB
-            })
+            if (safeGet(area, 'spaces') && Array.isArray(area.spaces)) {
+              area.spaces.sort((a, b) => {
+                // 提取数字部分进行比较
+                const numA = safeParseNumber(safeGet(a, 'number', '').replace(/\D/g, ''), 0)
+                const numB = safeParseNumber(safeGet(b, 'number', '').replace(/\D/g, ''), 0)
+                return numA - numB
+              })
+            }
           })
           
-          // 更新统计数据
+          // 更新统计数据（统计所有区域的车位）
           updateStatusData()
+          
+          console.log('总车位:', statusData.value.total)
         } else {
-          ElMessage.error('获取车位数据失败')
+          ElMessage.error(safeGet(response, 'message', '获取车位数据失败'))
         }
       } catch (error) {
         console.error('刷新数据错误:', error)
-        ElMessage.error('刷新数据错误')
+        ElMessage.error(safeGet(error, 'response.data.message', '刷新数据错误'))
       } finally {
         loading.value = false
       }
@@ -331,13 +429,15 @@ export default {
       let maintenance = 0
       
       parkingAreas.value.forEach(area => {
-        area.spaces.forEach(space => {
-          total++
-          if (space.status === 'occupied') occupied++
-          else if (space.status === 'available') available++
-          else if (space.status === 'reserved') reserved++
-          else if (space.status === 'maintenance') maintenance++
-        })
+        if (safeGet(area, 'spaces') && Array.isArray(area.spaces)) {
+          area.spaces.forEach(space => {
+            total++
+            if (safeGet(space, 'status') === 'occupied') occupied++
+            else if (safeGet(space, 'status') === 'available') available++
+            else if (safeGet(space, 'status') === 'reserved') reserved++
+            else if (safeGet(space, 'status') === 'maintenance') maintenance++
+          })
+        }
       })
       
       statusData.value = {
@@ -346,7 +446,7 @@ export default {
         available,
         reserved,
         maintenance,
-        occupancyRate: Math.round((occupied / total) * 100)
+        occupancyRate: total > 0 ? Math.round((occupied / total) * 100) : 0
       }
     }
     
@@ -386,9 +486,12 @@ export default {
     }
     
     onMounted(() => {
-      // 先生成模拟数据
-      generateParkingSpaces()
-      // 再尝试从API获取真实数据
+      // 直接从API获取真实数据
+      refreshData()
+    })
+    
+    // 添加activated钩子，确保在路由切换时组件能够正确更新
+    onActivated(() => {
       refreshData()
     })
     
@@ -400,6 +503,7 @@ export default {
       filterForm,
       parkingAreas,
       selectSpace,
+      toggleSpaceStatus,
       refreshData,
       handleFilter,
       resetFilter,

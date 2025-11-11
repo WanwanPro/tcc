@@ -12,6 +12,7 @@ require('dotenv').config()
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/users')
 const parkingRoutes = require('./routes/parking')
+const enhancedParkingRoutes = require('./routes/enhancedParking')
 const mapRoutes = require('./routes/map')
 const navigationRoutes = require('./routes/navigation')
 const simulationRoutes = require('./routes/simulation')
@@ -19,10 +20,23 @@ const financeRoutes = require('./routes/finance')
 const systemRoutes = require('./routes/system')
 const analyticsRoutes = require('./routes/analytics')
 const importTcc1DataRoutes = require('./routes/importTcc1Data')
+const adminParkingRoutes = require('./routes/adminParking')
+const adminSpacesRoutes = require('./routes/adminSpaces')
+const adminUsersRoutes = require('./routes/adminUsers')
+const adminStatisticsRoutes = require('./routes/adminStatistics')
+const adminFinanceRoutes = require('./routes/adminFinance')
+const adminSystemRoutes = require('./routes/adminSystem')
+const adminUserRoutes = require('./routes/adminUser')
+const adminRecordsRoutes = require('./routes/adminRecords')
 // 微信小程序专用路由
 const miniprogramRoutes = require('./routes/miniprogram')
 const miniprogramPathRoutes = require('./routes/miniprogramPath')
 const miniprogramUserRoutes = require('./routes/miniprogramUser')
+// 新增小程序功能路由
+const userProfileRoutes = require('./routes/userProfile')
+const recommendationRoutes = require('./routes/recommendation')
+const pathfindingRoutes = require('./routes/pathfinding')
+const findCarRoutes = require('./routes/findCar')
 
 // 导入中间件
 const { errorHandler } = require('./middleware/errorHandler')
@@ -36,16 +50,30 @@ app.use(helmet())
 
 // 跨域配置
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+  origin: process.env.CORS_ORIGIN || ['http://localhost:3001', 'http://localhost:5002', 'http://localhost:5003'],
   credentials: true
 }))
 
-// 请求限制
-const limiter = rateLimit({
+// 请求限制 - 对登录接口使用更宽松的限制
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100 // 限制每个IP 15分钟内最多100个请求
+  max: 50, // 登录接口：15分钟内最多50次
+  message: 'Too many login requests, please try again later.',
+  skipSuccessfulRequests: true, // 成功请求不计入限制
 })
-app.use('/api/', limiter)
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分钟
+  max: 300, // 其他接口：15分钟内最多300个请求（提高限制以支持实时刷新）
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// 登录接口使用更宽松的限制
+app.use('/api/admin/auth/login', authLimiter)
+// 其他接口使用常规限制
+app.use('/api/', apiLimiter)
 
 // 日志中间件
 app.use(morgan('combined'))
@@ -64,6 +92,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 app.use('/api/admin/auth', authRoutes)
 app.use('/api/admin/users', userRoutes)
 app.use('/api/admin/parking', parkingRoutes)
+app.use('/api/admin/parking-enhanced', enhancedParkingRoutes)
 app.use('/api/admin/map', mapRoutes)
 app.use('/api/admin/navigation', navigationRoutes)
 app.use('/api/admin/simulation', simulationRoutes)
@@ -71,10 +100,23 @@ app.use('/api/admin/finance', financeRoutes)
 app.use('/api/admin/system', systemRoutes)
 app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/import', importTcc1DataRoutes)
+app.use('/api/admin/parking-lots', adminParkingRoutes)
+app.use('/api/admin/parking-spaces', adminSpacesRoutes)
+app.use('/api/admin/users', adminUsersRoutes)
+app.use('/api/admin/statistics', adminStatisticsRoutes)
+app.use('/api/admin/finance', adminFinanceRoutes)
+app.use('/api/admin/system', adminSystemRoutes)
+app.use('/api/admin/users', adminUserRoutes)
+app.use('/api/admin/records', adminRecordsRoutes)
 // 微信小程序专用路由
 app.use('/api/spaces', miniprogramRoutes)
 app.use('/api/path', miniprogramPathRoutes)
 app.use('/api/users', miniprogramUserRoutes)
+// 新增小程序功能路由
+app.use('/api/user', userProfileRoutes)
+app.use('/api/recommendation', recommendationRoutes)
+app.use('/api/navigation', pathfindingRoutes)
+app.use('/api/find-car', findCarRoutes)
 
 // 健康检查
 app.get('/api/health', (req, res) => {

@@ -5,8 +5,20 @@
   </view>
 
   <view class="map-container" style="height: {{mapHeight}}px;">
-    <!-- 停车场地图展示 -->
-    <scroll-view class="parking-map" scroll-x="true" scroll-y="true" style="width: 100%; height: 100%;" scroll-left="{{scrollLeft}}" scroll-top="{{scrollTop}}">
+    <!-- Canvas渲染引擎地图 -->
+    <canvas 
+      wx:if="{{isUsingCanvas}}"
+      id="parking-canvas"
+      style="width: {{mapWidth}}px; height: {{mapHeight}}px; background-color: #f0f0f0;"
+      type="2d"
+      bindtap="selectSpace"
+      bindtouchstart="onCanvasTouchStart"
+      bindtouchmove="onCanvasTouchMove"
+      bindtouchend="onCanvasTouchEnd"
+    ></canvas>
+    
+    <!-- 传统View渲染（备用） -->
+    <scroll-view wx:else class="parking-map" scroll-x="true" scroll-y="true" style="width: 100%; height: 100%;" scroll-left="{{scrollLeft}}" scroll-top="{{scrollTop}}">
       <view style="width: {{mapWidth}}px; height: {{mapHeight}}px; position: relative;">
         <view 
           wx:for="{{spaces}}" 
@@ -33,9 +45,33 @@
   <view class="actions">
     <button class="refresh-btn" bindtap="refreshSpaces">刷新</button>
     <button class="find-btn" bindtap="findNearestFreeSpace">找空位</button>
-    <view class="scale-controls">
-      <button class="scale-btn" data-type="out" bindtap="scaleMap">缩小</button>
-      <button class="scale-btn" data-type="in" bindtap="scaleMap">放大</button>
+    
+    <!-- Canvas渲染引擎控制 -->
+    <view wx:if="{{isUsingCanvas}}" class="canvas-controls">
+      <view class="control-group">
+        <text class="control-label">缩放:</text>
+        <button class="scale-btn" data-type="out" bindtap="scaleMap">缩小</button>
+        <button class="scale-btn" data-type="in" bindtap="scaleMap">放大</button>
+      </view>
+      <view class="control-group">
+        <text class="control-label">旋转:</text>
+        <button class="rotate-btn" data-direction="left" bindtap="rotateMap">←</button>
+        <button class="rotate-btn" data-direction="right" bindtap="rotateMap">→</button>
+      </view>
+      <button class="reset-btn" bindtap="resetView">重置视角</button>
     </view>
+    
+    <!-- 传统模式控制 -->
+    <view wx:else class="traditional-controls">
+      <view class="scale-controls">
+        <button class="scale-btn" data-type="out" bindtap="scaleMap">缩小</button>
+        <button class="scale-btn" data-type="in" bindtap="scaleMap">放大</button>
+      </view>
+    </view>
+    
+    <!-- 切换渲染模式按钮 -->
+    <button class="toggle-mode-btn" bindtap="toggleRenderMode">
+      {{isUsingCanvas ? '使用传统模式' : '使用Canvas模式'}}
+    </button>
   </view>
 </view>

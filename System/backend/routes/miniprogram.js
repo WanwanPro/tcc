@@ -1,5 +1,6 @@
 const express = require('express')
 const ParkingSpace = require('../models/ParkingSpace')
+const dataModelMappingService = require('../services/dataModelMappingService')
 const router = express.Router()
 
 // 获取所有停车位状态（微信小程序API）
@@ -10,16 +11,16 @@ router.get('/', async (req, res) => {
       .populate('lotId', 'name')
       .sort({ floorId: 1, spaceId: 1 })
     
-    // 转换数据格式以适应前端需求
-    const formattedSpaces = spaces.map(space => ({
-      spaceId: space.spaceId,
-      floorId: space.floorId,
-      area: space.area,
-      status: space.status, // 空闲、占用、维修中
-      type: space.type,
-      position: space.position,
-      lotName: space.lotId ? space.lotId.name : '未知停车场'
-    }))
+    // 使用数据模型映射服务转换为微信小程序格式（确保状态为中文）
+    const formattedSpaces = spaces.map(space => {
+      const mappedSpace = dataModelMappingService.mapParkingSpaceToMiniprogram(space);
+      // 补充额外字段
+      mappedSpace.floorId = space.floorId;
+      mappedSpace.area = space.area;
+      mappedSpace.type = space.type;
+      mappedSpace.lotName = space.lotId ? space.lotId.name : '未知停车场';
+      return mappedSpace;
+    })
     
     res.status(200).json({
       success: true,
@@ -56,7 +57,10 @@ router.post('/update', async (req, res) => {
       })
     }
     
-    space.status = status
+    // 将微信小程序的中文状态转换为System后台的英文状态
+    const systemStatus = dataModelMappingService.mapStatusToSystem(status);
+    space.status = systemStatus
+    space.lastUpdated = new Date()
     await space.save()
     
     res.status(200).json({

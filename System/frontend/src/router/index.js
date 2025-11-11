@@ -3,19 +3,23 @@ import Layout from '@/layout/index.vue'
 
 const routes = [
   {
+    path: '/',
+    redirect: '/dashboard'
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/login/index.vue'),
     meta: { title: '登录' }
   },
   {
-    path: '/',
+    path: '/dashboard',
+    name: 'Dashboard',
     component: Layout,
-    redirect: '/dashboard',
+    meta: { title: '仪表盘', icon: 'DataBoard' },
     children: [
       {
-        path: 'dashboard',
-        name: 'Dashboard',
+        path: '',
         component: () => import('@/views/dashboard/index.vue'),
         meta: { title: '仪表盘', icon: 'DataBoard' }
       }
@@ -23,16 +27,11 @@ const routes = [
   },
   {
     path: '/parking',
+    name: 'Parking',
     component: Layout,
-    redirect: '/parking/spaces',
+    redirect: '/parking/status',
     meta: { title: '停车管理', icon: 'Location' },
     children: [
-      {
-        path: 'spaces',
-        name: 'ParkingSpaces',
-        component: () => import('@/views/parking/spaces.vue'),
-        meta: { title: '车位管理', icon: 'Location' }
-      },
       {
         path: 'status',
         name: 'ParkingStatus',
@@ -89,7 +88,7 @@ const routes = [
     path: '/map',
     component: Layout,
     redirect: '/map/config',
-    meta: { title: '地图管理', icon: 'Map' },
+    meta: { title: '地图管理', icon: 'Location' },
     children: [
       {
         path: 'config',
@@ -111,6 +110,30 @@ const routes = [
         component: () => import('@/views/system/settings.vue'),
         meta: { title: '系统设置', icon: 'Tools' }
       },
+      {
+        path: 'users',
+        name: 'SystemUsers',
+        component: () => import('@/views/system/users.vue'),
+        meta: { title: '用户管理', icon: 'User' }
+      },
+      {
+        path: 'roles',
+        name: 'SystemRoles',
+        component: () => import('@/views/system/roles.vue'),
+        meta: { title: '角色管理', icon: 'UserFilled' }
+      },
+      {
+            path: 'reports',
+            name: 'SystemReports',
+            component: () => import('@/views/system/reports.vue'),
+            meta: { title: '报表管理', icon: 'Document' }
+          },
+          {
+            path: 'visualization',
+            name: 'SystemVisualization',
+            component: () => import('@/views/system/visualization.vue'),
+            meta: { title: '数据可视化', icon: 'DataAnalysis' }
+          },
       {
         path: 'logs',
         name: 'SystemLogs',
@@ -150,12 +173,51 @@ const routes = [
         meta: { title: '自定义报表', icon: 'Document' }
       }
     ]
+  },
+  {
+    path: '/finance',
+    component: Layout,
+    redirect: '/finance/overview',
+    meta: { title: '财务管理', icon: 'Money' },
+    children: [
+      {
+        path: 'overview',
+        name: 'FinanceOverview',
+        component: () => import('@/views/finance/overview.vue'),
+        meta: { title: '财务概览', icon: 'Money' }
+      },
+      {
+        path: 'income',
+        name: 'FinanceIncome',
+        component: () => import('@/views/finance/income.vue'),
+        meta: { title: '收入管理', icon: 'Money' }
+      },
+      {
+        path: 'expenses',
+        name: 'FinanceExpenses',
+        component: () => import('@/views/finance/expenses.vue'),
+        meta: { title: '支出管理', icon: 'Money' }
+      },
+      {
+        path: 'reports',
+        name: 'FinanceReports',
+        component: () => import('@/views/finance/reports.vue'),
+        meta: { title: '财务报表', icon: 'Document' }
+      }
+    ]
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    } else {
+      return { top: 0 }
+    }
+  }
 })
 
 // 路由守卫

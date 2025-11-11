@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import ErrorHandler from './errorHandler'
 
 // 创建axios实例
 const service = axios.create({
@@ -14,6 +15,9 @@ service.interceptors.request.use(
     const token = localStorage.getItem('token')
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
+      console.log('[Request] Token已添加到请求头:', token.substring(0, 20) + '...')
+    } else {
+      console.warn('[Request] 未找到token，请求可能失败')
     }
     return config
   },
@@ -30,46 +34,31 @@ service.interceptors.response.use(
     // 对响应数据做点什么
     const res = response.data
     
+    // 调试日志
+    if (response.config.url && response.config.url.includes('/parking/spaces')) {
+      console.log('[Request Interceptor] 车位列表API响应:', {
+        url: response.config.url,
+        status: response.status,
+        success: res.success,
+        hasData: !!res.data,
+        dataKeys: res.data ? Object.keys(res.data) : [],
+        spacesCount: res.data?.spaces?.length || res.data?.items?.length || 0
+      })
+    }
+    
     // 如果返回的状态码为200，说明接口请求成功，可以正常拿到数据
     if (res.code === 200 || res.success === true) {
       return res
     } else {
       // 否则的话抛出错误
-      ElMessage.error(res.message || '系统错误')
-      return Promise.reject(new Error(res.message || '系统错误'))
+      const errorMessage = res.message || '系统错误'
+      ElMessage.error(errorMessage)
+      return Promise.reject(new Error(errorMessage))
     }
   },
   error => {
-    // 对响应错误做点什么
-    console.log('err' + error)
-    
-    if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          // 未登录或token过期
-          const errorMessage = error.response.data?.message || '登录已过期，请重新登录'
-          ElMessage.error(errorMessage)
-          localStorage.removeItem('token')
-          // 只有在当前不是登录页面时才跳转
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
-          break
-        case 403:
-          // 权限不足
-          ElMessage.error('权限不足')
-          break
-        case 500:
-          // 服务器错误
-          ElMessage.error('服务器错误')
-          break
-        default:
-          ElMessage.error('网络错误')
-      }
-    } else {
-      ElMessage.error('网络连接失败')
-    }
-    
+    // 使用ErrorHandler处理错误
+    ErrorHandler.handleApiError(error, ElMessage)
     return Promise.reject(error)
   }
 )

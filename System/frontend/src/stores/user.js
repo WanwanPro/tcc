@@ -29,7 +29,8 @@ export const useUserStore = defineStore('user', {
         
         this.token = token
         localStorage.setItem('token', token)
-        return response
+        console.log('[UserStore] Token已保存:', token.substring(0, 20) + '...')
+        return response // 返回完整的响应，以便登录组件可以使用其中的用户信息
       } catch (error) {
         // 清除可能已存储的无效token
         this.token = ''

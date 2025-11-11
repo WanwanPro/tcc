@@ -10,34 +10,134 @@ Page({
     ]
   },
 
+  // 定时刷新定时器
+  refreshTimer: null,
+
   onLoad() {
     // 页面加载时获取数据
     this.getSpaceInfo();
+    
+    // 启动定时刷新（每30秒自动刷新一次）
+    this.startAutoRefresh();
+  },
+
+  onUnload() {
+    // 页面卸载时清除定时器
+    this.stopAutoRefresh();
   },
 
   onShow() {
     // 页面显示时更新数据
     this.getSpaceInfo();
+    
+    // 确保定时器在运行
+    if (!this.refreshTimer) {
+      this.startAutoRefresh();
+    }
+  },
+
+  onHide() {
+    // 页面隐藏时可以停止定时刷新以节省资源（可选）
+    // this.stopAutoRefresh();
+  },
+
+  // 下拉刷新处理
+  onPullDownRefresh() {
+    console.log('[微信小程序] 下拉刷新触发');
+    this.getSpaceInfo(true); // 传入true表示是手动刷新
+  },
+
+  // 启动自动刷新
+  startAutoRefresh() {
+    // 清除之前的定时器
+    this.stopAutoRefresh();
+    
+    // 每15秒自动刷新一次（避免请求过于频繁）
+    this.refreshTimer = setInterval(() => {
+      console.log('[微信小程序] 定时刷新触发');
+      this.getSpaceInfo();
+    }, 15000); // 15秒 = 15000毫秒（推荐值，可根据需要调整）
+  },
+
+  // 停止自动刷新
+  stopAutoRefresh() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   },
 
   // 获取车位信息
-  getSpaceInfo() {
+  getSpaceInfo(isManualRefresh = false) {
     const app = getApp();
     
+    // 添加时间戳防止缓存
+    const timestamp = Date.now();
+    
     wx.request({
-      url: `${app.globalData.baseUrl}/spaces`,
+      url: `${app.globalData.baseUrl}/spaces?_t=${timestamp}`,
       success: (res) => {
         if (res.data.success) {
           // 计算空闲车位数
-          const spaces = res.data.data;
-          const freeSpaces = spaces.filter(space => space.status === '空闲').length;
+          const spaces = res.data.data || [];
+          console.log('[微信小程序] 获取到车位数据:', spaces.length, '个');
+          
+          // 统计所有状态分布
+          const statusBreakdown = spaces.reduce((acc, space) => {
+            const status = space.status || 'unknown';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+          }, {});
+          
+          // 支持中文状态和英文状态
+          // 空闲状态包括：'空闲' 或 'available'
+          // 占用状态：'占用'/'occupied'/'reserved'/'预定'/'maintenance'
+          const freeSpaces = spaces.filter(space => {
+            const status = space.status;
+            return status === '空闲' || status === 'available';
+          }).length;
+          
+          const occupiedSpaces = spaces.filter(space => {
+            const status = space.status;
+            return status === '占用' || status === 'occupied' || 
+                   status === 'reserved' || status === '预定' || 
+                   status === 'maintenance';
+          }).length;
+          
+          console.log('[微信小程序] 统计:', {
+            total: spaces.length,
+            free: freeSpaces,
+            occupied: occupiedSpaces,
+            statusBreakdown: statusBreakdown,
+            calculation: `空闲=${freeSpaces}, 占用=${occupiedSpaces}, 总计=${freeSpaces + occupiedSpaces}, 差异=${spaces.length - (freeSpaces + occupiedSpaces)}`
+          });
           
           this.setData({
             freeSpaces: freeSpaces,
             totalSpaces: spaces.length
           });
+          
+          // 如果是手动下拉刷新，显示提示
+          if (isManualRefresh) {
+            wx.showToast({
+              title: '刷新成功',
+              icon: 'success',
+              duration: 1500
+            });
+          }
         } else {
           console.error('获取车位信息失败:', res.data.message);
+          if (isManualRefresh) {
+            wx.showToast({
+              title: '刷新失败',
+              icon: 'error'
+            });
+          }
+        }
+        
+        // 停止下拉刷新动画
+        if (isManualRefresh) {
+          wx.stopPullDownRefresh();
         }
       },
       fail: (err) => {
@@ -46,6 +146,11 @@ Page({
           title: '网络错误',
           icon: 'error'
         });
+        
+        // 停止下拉刷新动画
+        if (isManualRefresh) {
+          wx.stopPullDownRefresh();
+        }
       }
     });
   },

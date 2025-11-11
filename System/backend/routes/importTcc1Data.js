@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 const router = express.Router()
 

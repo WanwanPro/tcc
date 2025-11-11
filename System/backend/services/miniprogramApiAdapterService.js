@@ -7,8 +7,8 @@ const axios = require('axios');
 const dataMappingService = require('../../../backend/services/dataMappingService');
 const dataModelMappingService = require('./dataModelMappingService');
 
-// 微信小程序后端API基础URL
-const MINIPROGRAM_API_BASE_URL = 'http://localhost:5000/api';
+// 微信小程序后端API基础URL（TCC后端）
+const MINIPROGRAM_API_BASE_URL = process.env.TCC_API_URL || 'http://localhost:3001/api';
 
 /**
  * 从微信小程序后端获取停车位数据

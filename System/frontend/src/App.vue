@@ -1,12 +1,19 @@
 <template>
   <div id="app">
-    <router-view />
+    <ErrorBoundary>
+      <router-view />
+    </ErrorBoundary>
   </div>
 </template>
 
 <script>
+import ErrorBoundary from '@/components/ErrorBoundary.vue'
+
 export default {
-  name: 'App'
+  name: 'App',
+  components: {
+    ErrorBoundary
+  }
 }
 </script>
 

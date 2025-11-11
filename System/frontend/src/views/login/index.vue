@@ -93,21 +93,39 @@ const handleLogin = () => {
         // 先清除可能存在的旧token
         localStorage.removeItem('token')
         
-        await userStore.login(loginForm)
-        ElMessage.success('登录成功')
+        // 执行登录
+        const loginResponse = await userStore.login(loginForm)
         
-        try {
-          // 获取用户信息
-          await userStore.getInfo()
+        // 如果登录响应中已包含用户信息，直接使用，无需再次请求
+        if (loginResponse.data && loginResponse.data.user) {
+          const userData = loginResponse.data.user
+          userStore.name = userData.name || ''
+          userStore.avatar = userData.avatar || ''
+          userStore.roles = [userData.role] || []
+          userStore.permissions = userData.permissions || []
           
-          // 获取重定向地址
-          const redirect = route.query.redirect || '/'
+          ElMessage.success('登录成功')
+          
+          // 获取重定向地址，默认跳转到仪表盘
+          const redirect = route.query.redirect || '/dashboard'
           router.push(redirect)
-        } catch (infoError) {
-          console.error('获取用户信息失败:', infoError)
-          ElMessage.error('获取用户信息失败，请重新登录')
-          // 清除token并重新显示登录表单
-          userStore.resetState()
+        } else {
+          // 否则，单独获取用户信息
+          ElMessage.success('登录成功')
+          
+          try {
+            // 获取用户信息
+            await userStore.getInfo()
+            
+            // 获取重定向地址，默认跳转到仪表盘
+            const redirect = route.query.redirect || '/dashboard'
+            router.push(redirect)
+          } catch (infoError) {
+            console.error('获取用户信息失败:', infoError)
+            ElMessage.error('获取用户信息失败，请重新登录')
+            // 清除token并重新显示登录表单
+            userStore.resetState()
+          }
         }
       } catch (error) {
         console.error('登录失败:', error)

@@ -1,6 +1,7 @@
 const express = require('express')
 const SystemConfig = require('../models/SystemConfig')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
+const systemController = require('../controllers/systemController')
 
 const router = express.Router()
 
@@ -321,5 +322,10 @@ router.post('/cache/clear', async (req, res) => {
     })
   }
 })
+
+// 车位状态管理
+router.post('/reset-parking-spaces', auth, systemController.resetParkingSpaces)
+router.post('/start-data-simulation', auth, systemController.startDataSimulation)
+router.post('/stop-data-simulation', auth, systemController.stopDataSimulation)
 
 module.exports = router

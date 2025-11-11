@@ -1,5 +1,5 @@
 const SystemConfig = require('../models/SystemConfig')
-const User = require('../models/User')
+const Admin = require('../models/Admin')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
 const Transaction = require('../models/Transaction')
@@ -259,7 +259,7 @@ const batchUpdateSystemConfigs = async (req, res) => {
 const getSystemInfo = async (req, res) => {
   try {
     // 获取系统统计信息
-    const userCount = await User.countDocuments()
+    const adminCount = await Admin.countDocuments()
     const parkingLotCount = await ParkingLot.countDocuments()
     const parkingSpaceCount = await ParkingSpace.countDocuments()
     const transactionCount = await Transaction.countDocuments()
@@ -321,7 +321,7 @@ const getSystemInfo = async (req, res) => {
         external: formatBytes(memoryUsage.external)
       },
       stats: {
-        userCount,
+        adminCount,
         parkingLotCount,
         parkingSpaceCount,
         transactionCount,
@@ -589,6 +589,185 @@ const clearCache = async (req, res) => {
   }
 }
 
+// 重置车位状态
+const resetParkingSpaces = async (req, res) => {
+  try {
+    const { lotId } = req.body
+    
+    // 构建查询条件
+    const query = {}
+    if (lotId) {
+      query.lotId = lotId
+    }
+    
+    // 重置所有车位状态
+    const result = await ParkingSpace.updateMany(
+      query,
+      {
+        $set: {
+          status: 'available',
+          occupiedBy: undefined,
+          parkedAt: null,
+          licensePlate: null,
+          lastUpdated: new Date()
+        }
+      }
+    )
+    
+    // 清空车位状态历史记录
+    const ParkingSpaceStatusHistory = require('../models/ParkingSpaceStatusHistory')
+    await ParkingSpaceStatusHistory.deleteMany({})
+    
+    res.status(200).json({
+      success: true,
+      message: `成功重置 ${result.modifiedCount} 个车位状态`,
+      data: {
+        resetCount: result.modifiedCount
+      }
+    })
+  } catch (error) {
+    console.error('重置车位状态失败:', error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    })
+  }
+}
+
+// 启动数据模拟
+const startDataSimulation = async (req, res) => {
+  try {
+    const { lotId, interval = 3000, maxChanges = 10 } = req.body
+    
+    // 检查是否已有模拟在运行
+    if (global.simulationTimer) {
+      return res.status(400).json({
+        success: false,
+        message: '数据模拟已在运行中'
+      })
+    }
+    
+    // 构建查询条件
+    const query = {}
+    if (lotId) {
+      query.lotId = lotId
+    }
+    
+    // 获取所有车位
+    const spaces = await ParkingSpace.find(query)
+    
+    if (spaces.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到车位'
+      })
+    }
+    
+    // 设置模拟定时器
+    global.simulationTimer = setInterval(async () => {
+      try {
+        // 随机选择要更改的车位数量
+        const changeCount = Math.floor(Math.random() * Math.min(maxChanges, spaces.length)) + 1
+        
+        // 随机选择车位
+        const shuffled = spaces.sort(() => 0.5 - Math.random())
+        const selectedSpaces = shuffled.slice(0, changeCount)
+        
+        // 更新车位状态
+        for (const space of selectedSpaces) {
+          // 随机决定状态变化
+          const random = Math.random()
+          let newStatus = space.status
+          
+          if (space.status === 'available' && random < 0.3) {
+            // 30% 概率从空闲变为占用
+            newStatus = 'occupied'
+            space.parkedAt = new Date()
+            
+            // 生成随机车牌号
+            const plateChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+            const plateNumbers = '0123456789'
+            let licensePlate = '沪'
+            
+            for (let i = 0; i < 3; i++) {
+              if (i === 0) {
+                licensePlate += plateChars.charAt(Math.floor(Math.random() * plateChars.length))
+              } else {
+                const chars = plateChars + plateNumbers
+                licensePlate += chars.charAt(Math.floor(Math.random() * chars.length))
+              }
+            }
+            
+            licensePlate += '·'
+            
+            for (let i = 0; i < 5; i++) {
+              licensePlate += plateNumbers.charAt(Math.floor(Math.random() * plateNumbers.length))
+            }
+            
+            space.licensePlate = licensePlate
+          } else if (space.status === 'occupied' && random < 0.7) {
+            // 70% 概率从占用变为空闲
+            newStatus = 'available'
+            space.parkedAt = null
+            space.licensePlate = null
+          }
+          
+          space.status = newStatus
+          space.lastUpdated = new Date()
+          await space.save()
+        }
+        
+        console.log(`模拟更新了 ${changeCount} 个车位状态`)
+      } catch (error) {
+        console.error('模拟更新车位状态失败:', error)
+      }
+    }, interval)
+    
+    res.status(200).json({
+      success: true,
+      message: '数据模拟已启动',
+      data: {
+        interval,
+        maxChanges,
+        totalSpaces: spaces.length
+      }
+    })
+  } catch (error) {
+    console.error('启动数据模拟失败:', error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    })
+  }
+}
+
+// 停止数据模拟
+const stopDataSimulation = async (req, res) => {
+  try {
+    if (!global.simulationTimer) {
+      return res.status(400).json({
+        success: false,
+        message: '数据模拟未在运行'
+      })
+    }
+    
+    // 清除定时器
+    clearInterval(global.simulationTimer)
+    global.simulationTimer = null
+    
+    res.status(200).json({
+      success: true,
+      message: '数据模拟已停止'
+    })
+  } catch (error) {
+    console.error('停止数据模拟失败:', error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    })
+  }
+}
+
 // 辅助函数：格式化运行时间
 function formatUptime(seconds) {
   const days = Math.floor(seconds / (24 * 60 * 60))
@@ -621,5 +800,8 @@ module.exports = {
   getSystemLogs,
   backupDatabase,
   restoreDatabase,
-  clearCache
+  clearCache,
+  resetParkingSpaces,
+  startDataSimulation,
+  stopDataSimulation
 }

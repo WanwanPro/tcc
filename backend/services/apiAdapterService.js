@@ -8,22 +8,65 @@ const dataMappingService = require('./dataMappingService');
 const dataModelMappingService = require('./dataModelMappingService');
 
 // System后台管理系统API基础URL
-const SYSTEM_API_BASE_URL = 'http://localhost:3000/api';
+const SYSTEM_API_BASE_URL = process.env.SYSTEM_API_URL || 'http://localhost:5000/api';
+
+// Token缓存（避免频繁登录）
+let cachedToken = null;
+let tokenExpiryTime = null;
 
 /**
- * 获取System后台管理系统的认证令牌
+ * 获取System后台管理系统的认证令牌（带缓存机制）
  * @returns {String} 认证令牌
  */
 async function getSystemAuthToken() {
   try {
-    const response = await axios.post(`${SYSTEM_API_BASE_URL}/auth/login`, {
+    // 检查缓存的token是否仍然有效（提前5分钟刷新）
+    const now = Date.now();
+    if (cachedToken && tokenExpiryTime && now < tokenExpiryTime - 5 * 60 * 1000) {
+      console.log('[getSystemAuthToken] 使用缓存的token');
+      return cachedToken;
+    }
+    
+    // 需要重新登录
+    const loginUrl = `${SYSTEM_API_BASE_URL}/admin/auth/login`;
+    console.log(`[getSystemAuthToken] 尝试登录: ${loginUrl}`);
+    
+    const response = await axios.post(loginUrl, {
       username: 'admin', // 使用默认管理员账户
       password: 'admin123'
     });
     
-    return response.data.token;
+    // 检查响应格式并提取token
+    let token = null;
+    if (response.data && response.data.data && response.data.data.token) {
+      token = response.data.data.token;
+    } else if (response.data && response.data.token) {
+      token = response.data.token;
+    } else {
+      console.error('[getSystemAuthToken] 登录响应格式异常:', response.data);
+      throw new Error('登录响应中未找到token');
+    }
+    
+    // 缓存token，设置24小时过期（JWT默认24小时）
+    cachedToken = token;
+    tokenExpiryTime = now + 24 * 60 * 60 * 1000; // 24小时后过期
+    
+    console.log('[getSystemAuthToken] 登录成功，token已缓存');
+    return token;
+    
   } catch (error) {
     console.error('获取System后台管理系统认证令牌失败:', error.message);
+    if (error.response) {
+      console.error('API响应状态:', error.response.status);
+      console.error('API响应数据:', error.response.data);
+      
+      // 如果是429错误（请求过多），清除缓存强制等待
+      if (error.response.status === 429) {
+        console.warn('[getSystemAuthToken] 请求过于频繁，清除缓存等待重试');
+        cachedToken = null;
+        tokenExpiryTime = null;
+      }
+    }
     throw new Error('认证失败');
   }
 }
@@ -37,19 +80,64 @@ async function getParkingSpacesFromSystem(lotId = 'default_lot') {
   try {
     const token = await getSystemAuthToken();
     
+    // 直接使用System后台管理系统的停车位接口（与前端使用同一接口）
+    // 使用limit=1000获取所有车位数据
     const response = await axios.get(
-      `${SYSTEM_API_BASE_URL}/parking/lots/${lotId}/spaces`,
+      `${SYSTEM_API_BASE_URL}/admin/parking/spaces`,
       {
+        params: {
+          limit: 1000,
+          page: 1
+        },
         headers: {
           'Authorization': `Bearer ${token}`
         }
       }
     );
     
-    // 使用新的数据模型映射服务将System后台格式的数据转换为微信小程序格式
-    return dataModelMappingService.batchMapParkingSpacesToMiniprogram(response.data);
+    // System后台返回的格式: { success: true, data: { items: [...], total: ... } }
+    let spaces = [];
+    if (response.data && response.data.success) {
+      if (response.data.data && response.data.data.items) {
+        spaces = response.data.data.items;
+      } else if (response.data.data && response.data.data.spaces) {
+        spaces = response.data.data.spaces;
+      } else if (Array.isArray(response.data.data)) {
+        spaces = response.data.data;
+      }
+    }
+    
+    // 使用数据模型映射服务将System后台格式的数据转换为微信小程序格式
+    const mappedSpaces = spaces.map(space => {
+      try {
+        return dataModelMappingService.mapParkingSpaceToMiniprogram(space);
+      } catch (mapError) {
+        console.error(`[getParkingSpacesFromSystem] 映射车位失败:`, space.spaceId, mapError.message);
+        // 如果映射失败，返回一个默认的空闲车位
+        return {
+          spaceId: space.spaceId || space._id?.toString() || 'UNKNOWN',
+          position: space.position || { x: 0, y: 0 },
+          status: '空闲',
+          updatedAt: space.updatedAt || space.lastUpdated || new Date()
+        };
+      }
+    });
+    
+    // 统计映射后的状态分布
+    const statusCount = mappedSpaces.reduce((acc, space) => {
+      acc[space.status] = (acc[space.status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    console.log(`[getParkingSpacesFromSystem] 从System后台获取到 ${spaces.length} 个车位，映射后 ${mappedSpaces.length} 个`);
+    console.log(`[getParkingSpacesFromSystem] 映射后状态统计:`, statusCount);
+    
+    return mappedSpaces;
   } catch (error) {
     console.error('从System后台管理系统获取停车位数据失败:', error.message);
+    if (error.response) {
+      console.error('API响应错误:', error.response.status, error.response.data);
+    }
     throw new Error('获取停车位数据失败');
   }
 }

@@ -7,6 +7,7 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 
 import App from './App.vue'
 import router from './router'
+import GlobalErrorHandler from './plugins/errorHandler'
 
 const app = createApp(App)
 
@@ -20,5 +21,6 @@ app.use(router)
 app.use(ElementPlus, {
   locale: zhCn,
 })
+app.use(GlobalErrorHandler)
 
 app.mount('#app')

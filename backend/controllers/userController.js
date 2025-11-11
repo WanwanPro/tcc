@@ -23,10 +23,16 @@ exports.login = async (req, res) => {
       await user.save();
     }
     
+    // 检查JWT_SECRET是否存在
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.warn('警告: JWT_SECRET未设置，使用默认密钥（仅用于开发环境）');
+    }
+    
     // 生成JWT token
     const token = jwt.sign(
       { userId: user.userId, openid: user.openid },
-      process.env.JWT_SECRET,
+      jwtSecret || 'default_dev_secret_change_in_production',
       { expiresIn: '24h' }
     );
     

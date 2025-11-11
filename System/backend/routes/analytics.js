@@ -4,7 +4,7 @@ const Analytics = require('../models/Analytics')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
 const Transaction = require('../models/Transaction')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 const router = express.Router()
 
@@ -695,14 +695,26 @@ router.get('/dashboard/stats', async (req, res) => {
     // 获取停车位总数
     const totalSpaces = await ParkingSpace.countDocuments(lotCondition)
     
-    // 获取已占用停车位数量
+    // 获取已占用停车位数量（包括occupied、reserved、maintenance）
     const occupiedSpaces = await ParkingSpace.countDocuments({ 
       ...lotCondition,
-      status: 'occupied' 
+      status: { $in: ['occupied', 'reserved', 'maintenance'] }
     })
     
-    // 获取可用停车位数量
-    const availableSpaces = totalSpaces - occupiedSpaces
+    // 获取可用停车位数量（只有available状态）
+    const availableSpaces = await ParkingSpace.countDocuments({
+      ...lotCondition,
+      status: 'available'
+    })
+    
+    // 双重验证：availableSpaces + occupiedSpaces 应该等于 totalSpaces
+    console.log('[Dashboard Stats] 车位统计:', {
+      total: totalSpaces,
+      available: availableSpaces,
+      occupied: occupiedSpaces,
+      sum: availableSpaces + occupiedSpaces,
+      diff: totalSpaces - (availableSpaces + occupiedSpaces)
+    })
     
     // 计算总占用率
     const totalOccupancyRate = totalSpaces > 0 ? (occupiedSpaces / totalSpaces) * 100 : 0

@@ -1,7 +1,7 @@
 const express = require('express')
 const ParkingSpace = require('../models/ParkingSpace')
 const ParkingLot = require('../models/ParkingLot')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 const router = express.Router()
 

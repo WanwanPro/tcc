@@ -339,6 +339,11 @@ const getParkingLotStats = async (req, res) => {
 // 获取所有停车位
 const getParkingSpaces = async (req, res) => {
   try {
+    console.log('[getParkingSpaces] 收到请求:', {
+      query: req.query,
+      user: req.user ? req.user.username : '未认证'
+    })
+    
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
     const skip = (page - 1) * limit
@@ -374,13 +379,45 @@ const getParkingSpaces = async (req, res) => {
     }
     
     // 执行查询
+    console.log('[getParkingSpaces] 查询条件:', JSON.stringify(query))
+    
+    // 先检查数据库总数
+    const dbTotal = await ParkingSpace.countDocuments({})
+    console.log('[getParkingSpaces] 数据库总车位数:', dbTotal)
+    
+    // 先测试不populate是否能查到数据
+    const parkingSpacesRaw = await ParkingSpace.find(query)
+      .sort({ floorId: 1, spaceId: 1 })
+      .skip(skip)
+      .limit(limit)
+    
+    console.log('[getParkingSpaces] 未populate时查到的数据:', parkingSpacesRaw.length)
+    
+    // 然后再populate
     const parkingSpaces = await ParkingSpace.find(query)
-      .populate('lotId', 'name address')
+      .populate({
+        path: 'lotId',
+        select: 'name address',
+        match: {} // 即使停车场不存在也返回车位数据
+      })
       .sort({ floorId: 1, spaceId: 1 })
       .skip(skip)
       .limit(limit)
     
     const total = await ParkingSpace.countDocuments(query)
+    
+    console.log('[getParkingSpaces] 查询结果:', {
+      queryTotal: total,
+      dbTotal: dbTotal,
+      returnedCount: parkingSpaces.length,
+      firstSpace: parkingSpaces[0] ? {
+        spaceId: parkingSpaces[0].spaceId,
+        lotId: parkingSpaces[0].lotId,
+        lotIdType: typeof parkingSpaces[0].lotId,
+        area: parkingSpaces[0].area,
+        status: parkingSpaces[0].status
+      } : null
+    })
     
     res.status(200).json({
       success: true,
@@ -581,6 +618,10 @@ const updateParkingSpace = async (req, res) => {
       })
     }
     
+    // 记录旧状态（用于同步）
+    const oldStatus = parkingSpace.status
+    const statusChanged = status && status !== oldStatus
+    
     // 更新字段
     if (area) parkingSpace.area = area
     if (type) parkingSpace.type = type
@@ -590,6 +631,21 @@ const updateParkingSpace = async (req, res) => {
     if (features) parkingSpace.features = features
     
     await parkingSpace.save()
+    
+    // 如果状态发生变化，自动同步到TCC后端（微信小程序）
+    if (statusChanged && parkingSpace.spaceId) {
+      try {
+        const miniprogramApiAdapter = require('../services/miniprogramApiAdapterService')
+        await miniprogramApiAdapter.updateParkingSpaceStatusInMiniprogram(
+          parkingSpace.spaceId,
+          status
+        )
+        console.log(`[自动同步] 车位 ${parkingSpace.spaceId} 状态已同步到微信小程序后端: ${oldStatus} -> ${status}`)
+      } catch (syncError) {
+        console.error(`[自动同步] 同步失败:`, syncError.message)
+        // 不影响主流程，只记录错误
+      }
+    }
     
     // 返回停车位信息
     const populatedSpace = await ParkingSpace.findById(parkingSpace._id)

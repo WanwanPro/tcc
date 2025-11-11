@@ -7,8 +7,8 @@ taskkill /f /im node.exe >nul 2>&1
 
 echo 2. 清理端口占用...
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":3001"') do taskkill /f /pid %%a >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":5000"') do taskkill /f /pid %%a >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":5001"') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":5002"') do taskkill /f /pid %%a >nul 2>&1
 
 echo.
 echo 所有服务已停止!

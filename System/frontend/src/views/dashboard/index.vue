@@ -1,5 +1,21 @@
 <template>
   <div class="dashboard-container">
+    <!-- 页面标题区域 -->
+    <div class="dashboard-header">
+      <h1 class="dashboard-title">仪表盘</h1>
+    </div>
+    
+    <!-- 顶部操作栏 -->
+    <div class="dashboard-toolbar">
+      <div class="toolbar-right">
+        <el-button type="primary" :icon="Refresh" @click="resetParkingStatus" size="small">重置车位状态</el-button>
+        <el-button type="success" :icon="VideoPlay" @click="startSimulation" size="small">启动数据模拟</el-button>
+        <el-button type="warning" :icon="VideoPause" @click="stopSimulation" size="small">停止数据模拟</el-button>
+        <el-button type="info" :icon="Download" @click="exportData" size="small">导出数据</el-button>
+        <el-button type="danger" :icon="Bell" @click="sendNotification" size="small">发送系统通知</el-button>
+      </div>
+    </div>
+
     <!-- 数据概览卡片 -->
     <el-row :gutter="20" class="dashboard-overview">
       <el-col :xs="24" :sm="12" :md="6" v-for="(item, index) in overviewData" :key="index">
@@ -86,31 +102,11 @@
         </el-card>
       </el-col>
     </el-row>
-
-    <!-- 快捷操作区域 -->
-    <el-row :gutter="20" class="dashboard-actions">
-      <el-col :span="24">
-        <el-card class="action-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span>快捷操作</span>
-            </div>
-          </template>
-          <div class="action-container">
-            <el-button type="primary" :icon="Refresh" @click="resetParkingStatus">重置车位状态</el-button>
-            <el-button type="success" :icon="VideoPlay" @click="startSimulation">启动数据模拟</el-button>
-            <el-button type="warning" :icon="VideoPause" @click="stopSimulation">停止数据模拟</el-button>
-            <el-button type="info" :icon="Download" @click="exportData">导出数据</el-button>
-            <el-button type="danger" :icon="Bell" @click="sendNotification">发送系统通知</el-button>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, onUnmounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, BarChart, PieChart } from 'echarts/charts'
@@ -132,8 +128,8 @@ import {
   Download,
   Bell
 } from '@element-plus/icons-vue'
-import { getDashboardData, startSpaceSimulation, stopSpaceSimulation } from '@/api'
-import { ElMessage } from 'element-plus'
+import { getDashboardData, startSpaceSimulation, stopSpaceSimulation, resetParkingSpaces, startDataSimulation, stopDataSimulation as stopSim } from '@/api'
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 
 // 注册必要的组件
 use([
@@ -182,6 +178,9 @@ const overviewData = reactive([
 // 时间范围选择
 const occupancyTimeRange = ref('day')
 const revenueTimeRange = ref('day')
+
+// 定时刷新器
+const refreshTimer = ref(null)
 
 // 收入趋势数据
 const revenueTrendData = ref([])
@@ -373,57 +372,167 @@ const peakHoursChartOption = reactive({
 // 获取仪表盘数据
 const fetchDashboardData = async () => {
   try {
+    console.log('开始获取仪表盘数据...')
     const response = await getDashboardData()
-    if (response.success) {
+    console.log('仪表盘API响应:', response)
+    
+    if (response.success && response.data) {
       // 更新数据概览
       if (response.data.overview) {
-        overviewData[0].value = response.data.overview.totalOccupancyRate + '%'
-        overviewData[1].value = response.data.overview.todayTransactionCount
-        overviewData[2].value = response.data.overview.totalSpaces
-        overviewData[3].value = '¥' + response.data.overview.todayRevenue
+        const overview = response.data.overview
+        overviewData[0].value = (overview.totalOccupancyRate || 0) + '%'
+        overviewData[1].value = overview.todayTransactionCount || 0
+        overviewData[2].value = overview.totalSpaces || 0
+        overviewData[3].value = '¥' + (overview.todayRevenue || 0)
+        
+        // 更新描述信息
+        overviewData[0].desc = `总车位: ${overview.totalSpaces || 0}, 已占用: ${overview.occupiedSpaces || 0}`
+        overviewData[1].desc = '今日车辆进出统计'
+        overviewData[2].desc = `可用车位: ${overview.availableSpaces || 0}`
+        overviewData[3].desc = '今日停车收入统计'
       }
       
       // 更新收入趋势数据
-      if (response.data.revenueTrend) {
-        revenueTrendData.value = response.data.revenueTrend
+      if (response.data.revenueTrend && response.data.revenueTrend.length > 0) {
+        revenueTrendData.value = response.data.revenueTrend.map(item => ({
+          date: item._id,
+          revenue: item.revenue,
+          count: item.count
+        }))
+        console.log('收入趋势数据已更新:', revenueTrendData.value)
       }
       
       // 更新车位使用分布数据
-      if (response.data.lotStats) {
+      if (response.data.lotStats && response.data.lotStats.length > 0) {
         distributionData.value = response.data.lotStats.map(item => ({
-          name: item.name,
-          value: item.occupiedSpaces
+          name: item.name || '未知停车场',
+          value: item.occupiedSpaces || 0,
+          totalSpaces: item.totalSpaces || 0,
+          occupancyRate: item.occupancyRate || 0
         }))
+        console.log('车位分布数据已更新:', distributionData.value)
       }
+      
+      console.log('仪表盘数据更新成功')
+    } else {
+      console.error('仪表盘API返回数据格式错误:', response)
+      ElMessage.error('获取仪表盘数据失败：数据格式错误')
     }
   } catch (error) {
     console.error('获取仪表盘数据失败:', error)
-    ElMessage.error('获取仪表盘数据失败')
+    ElMessage.error('获取仪表盘数据失败: ' + (error.message || '未知错误'))
   }
 }
 
 // 重置车位状态
-const resetParkingStatus = () => {
-  ElMessage.success('车位状态已重置')
+const resetParkingStatus = async () => {
+  try {
+    ElMessageBox.confirm(
+      '确定要重置所有车位状态吗？此操作将清空所有车位的占用状态和流量统计数据。',
+      '重置车位状态',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(async () => {
+      const loading = ElLoading.service({
+        lock: true,
+        text: '正在重置车位状态...',
+        background: 'rgba(0, 0, 0, 0.7)'
+      })
+      
+      try {
+        const response = await resetParkingSpaces()
+        
+        if (response.success) {
+          ElMessage.success(response.message || '车位状态重置成功')
+          // 刷新仪表盘数据
+          await fetchDashboardData()
+        } else {
+          ElMessage.error(response.message || '车位状态重置失败')
+        }
+      } catch (error) {
+        console.error('重置车位状态失败:', error)
+        ElMessage.error('重置车位状态失败')
+      } finally {
+        loading.close()
+      }
+    })
+  } catch (error) {
+    console.error('重置车位状态操作取消:', error)
+  }
 }
 
 // 启动数据模拟
 const startSimulation = async () => {
   try {
-    await startSpaceSimulation({})
-    ElMessage.success('数据模拟已启动')
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在启动数据模拟...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+    
+    try {
+      const response = await startDataSimulation()
+      
+      if (response.success) {
+        ElMessage.success(response.message || '数据模拟启动成功')
+        
+        // 启动定时刷新仪表盘数据
+        if (!refreshTimer.value) {
+          refreshTimer.value = setInterval(async () => {
+            await fetchDashboardData()
+          }, 5000) // 每5秒刷新一次
+        }
+      } else {
+        ElMessage.error(response.message || '数据模拟启动失败')
+      }
+    } catch (error) {
+      console.error('启动数据模拟失败:', error)
+      ElMessage.error('启动数据模拟失败')
+    } finally {
+      loading.close()
+    }
   } catch (error) {
-    console.error('启动数据模拟失败:', error)
+    console.error('启动数据模拟操作失败:', error)
   }
 }
 
 // 停止数据模拟
 const stopSimulation = async () => {
   try {
-    await stopSpaceSimulation()
-    ElMessage.success('数据模拟已停止')
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在停止数据模拟...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+    
+    try {
+      const response = await stopSim()
+      
+      if (response.success) {
+        ElMessage.success(response.message || '数据模拟停止成功')
+        
+        // 停止定时刷新
+        if (refreshTimer.value) {
+          clearInterval(refreshTimer.value)
+          refreshTimer.value = null
+        }
+        
+        // 刷新一次仪表盘数据
+        await fetchDashboardData()
+      } else {
+        ElMessage.error(response.message || '数据模拟停止失败')
+      }
+    } catch (error) {
+      console.error('停止数据模拟失败:', error)
+      ElMessage.error('停止数据模拟失败')
+    } finally {
+      loading.close()
+    }
   } catch (error) {
-    console.error('停止数据模拟失败:', error)
+    console.error('停止数据模拟操作失败:', error)
   }
 }
 
@@ -440,14 +549,56 @@ const sendNotification = () => {
 onMounted(() => {
   fetchDashboardData()
 })
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+})
 </script>
 
 <style lang="scss" scoped>
 .dashboard-container {
-  padding: 20px;
+  padding: 0;
+  margin: -20px;
+  background-color: #f0f2f5;
+  min-height: calc(100vh - 60px);
+  
+  .dashboard-header {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 0;
+    
+    .dashboard-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: bold;
+      color: #303133;
+    }
+  }
+  
+  .dashboard-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 20px;
+    
+    .toolbar-right {
+      display: flex;
+      gap: 10px;
+    }
+  }
   
   .dashboard-overview {
-    margin-bottom: 20px;
+    margin: 0 20px 20px 20px;
     
     .overview-card {
       .card-content {
@@ -491,7 +642,7 @@ onMounted(() => {
   }
   
   .dashboard-charts {
-    margin-bottom: 20px;
+    margin: 0 20px 20px 20px;
     
     .chart-card {
       margin-bottom: 20px;

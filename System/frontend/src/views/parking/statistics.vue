@@ -86,8 +86,11 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onActivated, nextTick, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { request } from '@/utils/request'
+import { safeGet } from '@/utils/helpers'
 
 export default {
   name: 'ParkingStatistics',
@@ -99,11 +102,116 @@ export default {
     const peakHoursChart = ref(null)
     
     const statistics = ref({
-      totalRevenue: 12580,
-      totalCars: 342,
-      avgDuration: 2.5,
-      occupancyRate: 75
+      totalRevenue: 0,
+      totalCars: 0,
+      avgDuration: 0,
+      occupancyRate: 0
     })
+    
+    // 获取统计数据
+    const fetchStatistics = async () => {
+      try {
+        const response = await request({
+          url: '/admin/parking/statistics',
+          method: 'get',
+          params: {
+            timeRange: timeRange.value
+          }
+        })
+        
+        if (safeGet(response, 'code') === 200) {
+          const data = safeGet(response, 'data', {})
+          statistics.value = {
+            totalRevenue: safeGet(data, 'totalRevenue', 0),
+            totalCars: safeGet(data, 'totalCars', 0),
+            avgDuration: safeGet(data, 'avgDuration', 0),
+            occupancyRate: safeGet(data, 'occupancyRate', 0)
+          }
+          
+          // 更新图表数据
+          updateCharts(data)
+        } else {
+          ElMessage.error(safeGet(response, 'message', '获取统计数据失败'))
+        }
+      } catch (error) {
+        console.error('获取统计数据失败:', error)
+        ElMessage.error('获取统计数据失败，请检查网络连接')
+      }
+    }
+    
+    // 更新图表数据
+    const updateCharts = (data) => {
+      // 收入趋势图
+      const revenueChartInstance = echarts.getInstanceByDom(revenueChart.value)
+      if (revenueChartInstance) {
+        const revenueData = safeGet(data, 'revenueData', [120, 200, 1500, 2800, 2200, 1800, 800])
+        const timeLabels = safeGet(data, 'timeLabels', ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'])
+        
+        revenueChartInstance.setOption({
+          xAxis: {
+            data: timeLabels
+          },
+          series: [{
+            data: revenueData
+          }]
+        })
+      }
+      
+      // 车流量趋势图
+      const trafficChartInstance = echarts.getInstanceByDom(trafficChart.value)
+      if (trafficChartInstance) {
+        const enterData = safeGet(data, 'enterData', [5, 10, 35, 50, 40, 30, 15])
+        const exitData = safeGet(data, 'exitData', [3, 8, 25, 40, 35, 25, 10])
+        const timeLabels = safeGet(data, 'timeLabels', ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'])
+        
+        trafficChartInstance.setOption({
+          xAxis: {
+            data: timeLabels
+          },
+          series: [
+            {
+              data: enterData
+            },
+            {
+              data: exitData
+            }
+          ]
+        })
+      }
+      
+      // 车位使用情况图
+      const occupancyChartInstance = echarts.getInstanceByDom(occupancyChart.value)
+      if (occupancyChartInstance) {
+        const occupancyData = safeGet(data, 'occupancyData', [
+          { value: 75, name: '已占用' },
+          { value: 20, name: '空闲' },
+          { value: 3, name: '预留' },
+          { value: 2, name: '维修中' }
+        ])
+        
+        occupancyChartInstance.setOption({
+          series: [{
+            data: occupancyData
+          }]
+        })
+      }
+      
+      // 高峰时段分析图
+      const peakHoursChartInstance = echarts.getInstanceByDom(peakHoursChart.value)
+      if (peakHoursChartInstance) {
+        const peakHoursData = safeGet(data, 'peakHoursData', [30, 85, 65, 75, 55, 90, 95, 60, 35])
+        const peakHoursLabels = safeGet(data, 'peakHoursLabels', ['6:00', '8:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'])
+        
+        peakHoursChartInstance.setOption({
+          xAxis: {
+            data: peakHoursLabels
+          },
+          series: [{
+            data: peakHoursData
+          }]
+        })
+      }
+    }
     
     // 初始化图表
     const initCharts = () => {
@@ -256,7 +364,21 @@ export default {
     onMounted(() => {
       nextTick(() => {
         initCharts()
+        fetchStatistics()
       })
+    })
+    
+    // 添加activated钩子，确保在路由切换时组件能够正确更新
+    onActivated(() => {
+      nextTick(() => {
+        initCharts()
+        fetchStatistics()
+      })
+    })
+    
+    // 监听时间范围变化
+    watch(timeRange, () => {
+      fetchStatistics()
     })
     
     return {
@@ -265,7 +387,9 @@ export default {
       revenueChart,
       trafficChart,
       occupancyChart,
-      peakHoursChart
+      peakHoursChart,
+      fetchStatistics,
+      updateCharts
     }
   }
 }

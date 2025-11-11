@@ -4,7 +4,18 @@
       <template #header>
         <div class="card-header">
           <span>系统设置</span>
-          <el-button type="primary" @click="handleSave">保存设置</el-button>
+          <div class="settings-actions">
+            <el-button type="primary" @click="handleSave">保存设置</el-button>
+            <el-button @click="handleReset">重置默认</el-button>
+            <el-button @click="handleExport">导出配置</el-button>
+            <el-upload
+              action=""
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleImport">
+              <el-button>导入配置</el-button>
+            </el-upload>
+          </div>
         </div>
       </template>
       
@@ -144,8 +155,11 @@
               </el-select>
             </el-form-item>
             <el-form-item label="短信签名">
-              <el-input v-model="notificationSettings.smsSignature" placeholder="请输入短信签名"></el-input>
-            </el-form-item>
+          <el-input v-model="notificationSettings.smsSignature" placeholder="请输入短信签名"></el-input>
+        </el-form-item>
+        <el-form-item>
+          <el-button @click="handleTestSms" type="primary" plain>测试短信配置</el-button>
+        </el-form-item>
             <el-form-item label="邮件通知">
               <el-switch v-model="notificationSettings.emailEnabled" />
             </el-form-item>
@@ -160,6 +174,9 @@
             </el-form-item>
             <el-form-item label="邮箱密码">
               <el-input v-model="notificationSettings.emailPassword" type="password" placeholder="请输入邮箱密码"></el-input>
+            </el-form-item>
+            <el-form-item>
+              <el-button @click="handleTestEmail" type="primary" plain>测试邮件配置</el-button>
             </el-form-item>
             <el-form-item label="通知场景">
               <el-checkbox-group v-model="notificationSettings.notificationScenes">
@@ -222,6 +239,15 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import {
+  getSystemSettings,
+  updateSystemSettings,
+  testEmailConfig,
+  testSmsConfig,
+  resetSystemSettings,
+  exportSystemSettings,
+  importSystemSettings
+} from '@/api/system'
 
 export default {
   name: 'SystemSettings',
@@ -283,11 +309,21 @@ export default {
       ipWhitelist: ''
     })
     
-    const fetchSettings = () => {
-      // 模拟API请求
-      setTimeout(() => {
-        // 这里可以从API获取设置数据
-      }, 500)
+    const fetchSettings = async () => {
+      try {
+        const response = await getSystemSettings()
+        if (response.success) {
+          const settings = response.data
+          basicSettings.value = settings.basic || basicSettings.value
+          parkingSettings.value = settings.parking || parkingSettings.value
+          paymentSettings.value = settings.payment || paymentSettings.value
+          notificationSettings.value = settings.notification || notificationSettings.value
+          securitySettings.value = settings.security || securitySettings.value
+        }
+      } catch (error) {
+        console.error('获取系统设置失败:', error)
+        ElMessage.error('获取系统设置失败')
+      }
     }
     
     const handleLogoChange = (file) => {
@@ -299,11 +335,120 @@ export default {
       reader.readAsDataURL(file.raw)
     }
     
-    const handleSave = () => {
-      // 模拟保存设置
-      setTimeout(() => {
-        ElMessage.success('设置保存成功')
-      }, 500)
+    const handleSave = async () => {
+      try {
+        const settings = {
+          basic: basicSettings.value,
+          parking: parkingSettings.value,
+          payment: paymentSettings.value,
+          notification: notificationSettings.value,
+          security: securitySettings.value
+        }
+        
+        const response = await updateSystemSettings(settings)
+        if (response.success) {
+          ElMessage.success('设置保存成功')
+        } else {
+          ElMessage.error(response.message || '设置保存失败')
+        }
+      } catch (error) {
+        console.error('保存设置失败:', error)
+        ElMessage.error('保存设置失败')
+      }
+    }
+    
+    const handleTestEmail = async () => {
+      try {
+        const response = await testEmailConfig({
+          emailAccount: notificationSettings.value.emailAccount,
+          smtpServer: notificationSettings.value.smtpServer,
+          smtpPort: notificationSettings.value.smtpPort,
+          emailPassword: notificationSettings.value.emailPassword
+        })
+        
+        if (response.success) {
+          ElMessage.success('邮件配置测试成功')
+        } else {
+          ElMessage.error(response.message || '邮件配置测试失败')
+        }
+      } catch (error) {
+        console.error('测试邮件配置失败:', error)
+        ElMessage.error('测试邮件配置失败')
+      }
+    }
+    
+    const handleTestSms = async () => {
+      try {
+        const response = await testSmsConfig({
+          smsProvider: notificationSettings.value.smsProvider,
+          smsSignature: notificationSettings.value.smsSignature
+        })
+        
+        if (response.success) {
+          ElMessage.success('短信配置测试成功')
+        } else {
+          ElMessage.error(response.message || '短信配置测试失败')
+        }
+      } catch (error) {
+        console.error('测试短信配置失败:', error)
+        ElMessage.error('测试短信配置失败')
+      }
+    }
+    
+    const handleReset = async () => {
+      try {
+        const response = await resetSystemSettings()
+        if (response.success) {
+          ElMessage.success('系统设置重置成功')
+          fetchSettings() // 重新获取设置
+        } else {
+          ElMessage.error(response.message || '系统设置重置失败')
+        }
+      } catch (error) {
+        console.error('重置系统设置失败:', error)
+        ElMessage.error('重置系统设置失败')
+      }
+    }
+    
+    const handleExport = async () => {
+      try {
+        const response = await exportSystemSettings()
+        
+        // 创建下载链接
+        const url = window.URL.createObjectURL(new Blob([response]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `system-settings-${Date.now()}.json`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        ElMessage.success('系统设置导出成功')
+      } catch (error) {
+        console.error('导出系统设置失败:', error)
+        ElMessage.error('导出系统设置失败')
+      }
+    }
+    
+    const handleImport = async (event) => {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      try {
+        const response = await importSystemSettings(file)
+        if (response.success) {
+          ElMessage.success('系统设置导入成功')
+          fetchSettings() // 重新获取设置
+        } else {
+          ElMessage.error(response.message || '系统设置导入失败')
+        }
+      } catch (error) {
+        console.error('导入系统设置失败:', error)
+        ElMessage.error('导入系统设置失败')
+      }
+      
+      // 清空文件输入
+      event.target.value = ''
     }
     
     onMounted(() => {
@@ -318,13 +463,31 @@ export default {
       notificationSettings,
       securitySettings,
       handleLogoChange,
-      handleSave
+      handleSave,
+      handleTestEmail,
+      handleTestSms,
+      handleReset,
+      handleExport,
+      handleImport
     }
   }
 }
 </script>
 
 <style scoped>
+.settings-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-actions .el-upload {
+  display: inline-block;
+}
+
+.settings-actions .el-button {
+  margin-right: 0;
+}
+
 .system-settings-container {
   padding: 20px;
 }

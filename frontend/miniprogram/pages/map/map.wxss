@@ -94,9 +94,78 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-around;
   align-items: center;
   padding: 20rpx 0;
+  gap: 10rpx;
+}
+
+/* Canvas渲染引擎控制界面样式 */
+.canvas-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15rpx;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.control-label {
+  font-size: 24rpx;
+  color: #333;
+  min-width: 60rpx;
+}
+
+.canvas-controls .scale-btn,
+.canvas-controls .rotate-btn,
+.canvas-controls .reset-btn {
+  padding: 8rpx 15rpx;
+  font-size: 22rpx;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8rpx;
+  min-width: 60rpx;
+}
+
+.canvas-controls .rotate-btn {
+  background-color: #2196F3;
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-controls .reset-btn {
+  background-color: #FF9800;
+  width: 120rpx;
+}
+
+/* 传统模式控制界面样式 */
+.traditional-controls {
+  display: flex;
+  align-items: center;
+}
+
+.traditional-controls .scale-controls {
+  display: flex;
+  gap: 10rpx;
+}
+
+/* 切换模式按钮样式 */
+.toggle-mode-btn {
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  background-color: #9C27B0;
+  color: white;
+  border: none;
+  border-radius: 8rpx;
+  margin-top: 10rpx;
 }
 
 .refresh-btn {

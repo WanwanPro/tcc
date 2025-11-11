@@ -8,20 +8,39 @@ exports.calculateOptimalPath = async (req, res) => {
   try {
     const { startPoint, endPoint, obstacles, useSystemApi } = req.body;
     
+    // 验证输入参数
+    if (!startPoint || !endPoint) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供起点和终点'
+      });
+    }
+    
+    if (!startPoint.x || !startPoint.y || !endPoint.x || !endPoint.y) {
+      return res.status(400).json({
+        success: false,
+        message: '起点和终点必须包含x和y坐标'
+      });
+    }
+    
     let result;
     
     // 如果请求中指定使用System API，则从System后台获取路径
     if (useSystemApi === 'true') {
       try {
-        // 使用数据模型映射服务将起点和终点转换为System格式
-        const systemStartPoint = dataModelMappingService.mapPointToSystem(startPoint);
-        const systemEndPoint = dataModelMappingService.mapPointToSystem(endPoint);
-        
+        // 起点和终点已经是 {x, y} 格式，可以直接使用
         // 从System后台获取路径
-        const systemResult = await apiAdapterService.calculatePathInSystem(systemStartPoint, systemEndPoint);
+        const systemResult = await apiAdapterService.calculatePathInSystem(startPoint, endPoint);
         
         // 使用数据模型映射服务将System路径转换为微信小程序格式
-        result = dataModelMappingService.mapPathToMiniprogram(systemResult);
+        const mappedPath = dataModelMappingService.mapPathToMiniprogram(systemResult);
+        
+        // 统一返回格式，与本地计算保持一致
+        result = {
+          success: true,
+          message: '路径计算成功',
+          data: mappedPath
+        };
       } catch (systemError) {
         console.error('从System后台获取路径失败，使用本地计算:', systemError.message);
         // 如果System API失败，回退到本地计算

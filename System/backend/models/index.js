@@ -1,290 +1,25 @@
 const mongoose = require('mongoose')
 
-// 用户模型
-const UserSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'operator', 'viewer'],
-    default: 'viewer'
-  },
-  profile: {
-    firstName: String,
-    lastName: String,
-    phone: String,
-    avatar: String
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  lastLogin: Date
-}, {
-  timestamps: true
-})
+// 从User.js导入User和Role模型
+const { User, Role } = require('./User')
 
-// 停车场模型
-const ParkingLotSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-  address: {
-    type: String,
-    required: true
-  },
-  totalSpaces: {
-    type: Number,
-    required: true
-  },
-  availableSpaces: {
-    type: Number,
-    default: 0
-  },
-  floors: {
-    type: Number,
-    default: 1
-  },
-  operatingHours: {
-    open: String,
-    close: String
-  },
-  pricing: {
-    hourly: Number,
-    daily: Number,
-    monthly: Number
-  },
-  features: [String],
-  coordinates: {
-    latitude: Number,
-    longitude: Number
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
-})
+// 从ParkingLot.js导入ParkingLot模型
+const ParkingLot = require('./ParkingLot')
 
-// 停车位模型
-const ParkingSpaceSchema = new mongoose.Schema({
-  spaceId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  parkingLotId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ParkingLot',
-    required: true
-  },
-  floor: {
-    type: Number,
-    required: true
-  },
-  section: String,
-  spaceNumber: {
-    type: String,
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['standard', 'disabled', 'electric', 'reserved'],
-    default: 'standard'
-  },
-  status: {
-    type: String,
-    enum: ['available', 'occupied', 'reserved', 'out_of_order'],
-    default: 'available'
-  },
-  coordinates: {
-    x: Number,
-    y: Number
-  },
-  nodeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'MapNode'
-  },
-  vehicleInfo: {
-    licensePlate: String,
-    entryTime: Date,
-    estimatedExitTime: Date
-  }
-}, {
-  timestamps: true
-})
+// 从ParkingSpace.js导入ParkingSpace模型
+const ParkingSpace = require('./ParkingSpace')
 
-// 地图节点模型
-const MapNodeSchema = new mongoose.Schema({
-  nodeId: {
-    type: String,
-    required: true
-  },
-  parkingLotId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ParkingLot',
-    required: true
-  },
-  floor: {
-    type: Number,
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['entrance', 'exit', 'parking_space', 'intersection', 'elevator', 'stairs', 'amenity'],
-    required: true
-  },
-  name: String,
-  coordinates: {
-    x: {
-      type: Number,
-      required: true
-    },
-    y: {
-      type: Number,
-      required: true
-    }
-  },
-  connections: [{
-    nodeId: String,
-    distance: Number,
-    floor: Number,
-    type: {
-      type: String,
-      enum: ['walkway', 'stairs', 'elevator', 'ramp'],
-      default: 'walkway'
-    }
-  }],
-  isActive: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
-})
+// 从MapNode.js导入MapNode模型
+const MapNode = require('./MapNode')
 
-// 导航路径模型
-const NavigationPathSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-  parkingLotId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ParkingLot',
-    required: true
-  },
-  startPoint: {
-    nodeId: String,
-    floor: Number,
-    type: String,
-    name: String
-  },
-  endPoint: {
-    nodeId: String,
-    floor: Number,
-    type: String,
-    name: String
-  },
-  path: [{
-    nodeId: String,
-    floor: Number,
-    coordinates: {
-      x: Number,
-      y: Number
-    },
-    instruction: String
-  }],
-  distance: Number,
-  estimatedTime: Number,
-  isRecommended: {
-    type: Boolean,
-    default: false
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
-})
+// 从NavigationPath.js导入NavigationPath模型
+const NavigationPath = require('./NavigationPath')
 
-// 交易记录模型
-const TransactionSchema = new mongoose.Schema({
-  transactionId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  parkingSpaceId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ParkingSpace',
-    required: true
-  },
-  parkingLotId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ParkingLot',
-    required: true
-  },
-  vehicleInfo: {
-    licensePlate: {
-      type: String,
-      required: true
-    },
-    type: {
-      type: String,
-      enum: ['car', 'motorcycle', 'truck', 'electric'],
-      default: 'car'
-    }
-  },
-  entryTime: {
-    type: Date,
-    required: true
-  },
-  exitTime: Date,
-  duration: Number, // 分钟
-  amount: {
-    type: Number,
-    required: true
-  },
-  paymentMethod: {
-    type: String,
-    enum: ['cash', 'card', 'mobile', 'subscription'],
-    required: true
-  },
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'completed', 'failed', 'refunded'],
-    default: 'pending'
-  },
-  status: {
-    type: String,
-    enum: ['active', 'completed', 'cancelled'],
-    default: 'active'
-  },
-  operatorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }
-}, {
-  timestamps: true
-})
+// 从Transaction.js导入Transaction模型
+const Transaction = require('./Transaction')
+
+// 从SystemConfig.js导入SystemConfig模型
+const SystemConfig = require('./SystemConfig')
 
 // 计费规则模型
 const BillingRuleSchema = new mongoose.Schema({
@@ -377,36 +112,6 @@ const AnalyticsReportSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// 系统配置模型
-const SystemConfigSchema = new mongoose.Schema({
-  key: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  category: {
-    type: String,
-    required: true
-  },
-  value: {
-    type: mongoose.Schema.Types.Mixed,
-    required: true
-  },
-  description: String,
-  dataType: {
-    type: String,
-    enum: ['string', 'number', 'boolean', 'object', 'array'],
-    default: 'string'
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  properties: mongoose.Schema.Types.Mixed
-}, {
-  timestamps: true
-})
-
 // 模拟历史记录模型
 const SimulationHistorySchema = new mongoose.Schema({
   parkingSpaceId: {
@@ -439,19 +144,14 @@ const SimulationHistorySchema = new mongoose.Schema({
 })
 
 // 创建模型
-const User = mongoose.model('User', UserSchema)
-const ParkingLot = mongoose.model('ParkingLot', ParkingLotSchema)
-const ParkingSpace = mongoose.model('ParkingSpace', ParkingSpaceSchema)
-const MapNode = mongoose.model('MapNode', MapNodeSchema)
-const NavigationPath = mongoose.model('NavigationPath', NavigationPathSchema)
-const Transaction = mongoose.model('Transaction', TransactionSchema)
 const BillingRule = mongoose.model('BillingRule', BillingRuleSchema)
 const AnalyticsReport = mongoose.model('AnalyticsReport', AnalyticsReportSchema)
-const SystemConfig = mongoose.model('SystemConfig', SystemConfigSchema)
 const SimulationHistory = mongoose.model('SimulationHistory', SimulationHistorySchema)
 
+// 导出所有模型
 module.exports = {
   User,
+  Role,
   ParkingLot,
   ParkingSpace,
   MapNode,
@@ -461,4 +161,23 @@ module.exports = {
   AnalyticsReport,
   SystemConfig,
   SimulationHistory
+}
+
+// 导入并重新导出小程序相关模型
+const {
+  MiniProgramUser,
+  Vehicle,
+  ParkingRecord,
+  FavoriteParkingLot,
+  UserFeedback
+} = require('./miniprogram')
+
+// 添加小程序模型到导出
+module.exports = {
+  ...module.exports,
+  MiniProgramUser,
+  Vehicle,
+  ParkingRecord,
+  FavoriteParkingLot,
+  UserFeedback
 }

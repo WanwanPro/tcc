@@ -1,64 +1,87 @@
+<!--pages/navigation/navigation.wxml-->
 <view class="container">
-  <view class="header">
-    <text class="title">智能导航</text>
-  </view>
+  <!-- 2.5D 地图画布 -->
+  <canvas 
+    type="2d" 
+    id="mapCanvas" 
+    class="map-canvas"
+    bindtouchstart="onCanvasTouchStart"
+    bindtouchmove="onCanvasTouchMove"
+    bindtouchend="onCanvasTouchEnd"
+  ></canvas>
 
-  <view class="navigation-info" wx:if="{{isNavigating}}">
-    <view class="info-item">
-      <text class="label">距离:</text>
-      <text class="value">{{distance.toFixed(2)}} 米</text>
+  <!-- 控制面板 -->
+  <view class="control-panel">
+    <!-- 摇杆容器 -->
+    <view class="joystick-wrapper">
+      <movable-area class="joystick-area">
+        <movable-view 
+          class="joystick-handle" 
+          direction="all"
+          bindchange="onJoystickChange"
+          bindtouchend="onJoystickRelease"
+          x="{{joystickX}}"
+          y="{{joystickY}}"
+        >
+          <view class="joystick-inner"></view>
+        </movable-view>
+      </movable-area>
+      <view class="joystick-base"></view>
     </view>
-    <view class="info-item">
-      <text class="label">预计时间:</text>
-      <text class="value">{{estimatedTime.toFixed(0)}} 秒</text>
-    </view>
-  </view>
 
-  <view class="map-container">
-    <!-- 简化的导航地图展示 -->
-    <view class="navigation-map">
-      <!-- 起点 -->
-      <view 
-        class="point start-point" 
-        wx:if="{{startPoint}}"
-        style="left: {{startPoint.x}}px; top: {{startPoint.y}}px;"
-      >
-        <text class="point-label">起</text>
-      </view>
-      
-      <!-- 终点 -->
-      <view 
-        class="point end-point" 
-        wx:if="{{endPoint}}"
-        style="left: {{endPoint.x}}px; top: {{endPoint.y}}px;"
-      >
-        <text class="point-label">终</text>
-      </view>
-      
-      <!-- 路径 -->
-      <view 
-        wx:for="{{path}}" 
-        wx:key="index"
-        class="path-point"
-        style="left: {{item.x}}px; top: {{item.y}}px;"
-      ></view>
+    <!-- 信息显示 -->
+    <view class="info-panel">
+      <text class="info-text">速度: {{speed.toFixed(1)}} m/s</text>
+      <text class="info-text">方向: {{bearing.toFixed(0)}}°</text>
     </view>
   </view>
 
-  <view class="actions">
+  <!-- 导航控制按钮 -->
+  <view class="nav-buttons">
     <button 
-      class="nav-btn start-btn" 
-      wx:if="{{!isNavigating}}"
-      bindtap="startNavigation"
+      class="nav-btn {{isNavigating ? 'active' : ''}}" 
+      bindtap="toggleNavigation"
     >
-      开始导航
+      {{isNavigating ? '停止导航' : '开始导航'}}
     </button>
+    
     <button 
-      class="nav-btn end-btn" 
-      wx:if="{{isNavigating}}"
-      bindtap="endNavigation"
+      class="nav-btn secondary" 
+      bindtap="selectDestination"
     >
-      结束导航
+      选择目的地
     </button>
+
+    <button 
+      class="nav-btn secondary" 
+      bindtap="resetCamera"
+    >
+      重置视角
+    </button>
+  </view>
+
+  <!-- 目的地选择器 -->
+  <view class="destination-picker" wx:if="{{showDestPicker}}">
+    <view class="picker-header">
+      <text>选择目的地</text>
+      <button class="close-btn" bindtap="closePicker">×</button>
+    </view>
+    <scroll-view class="picker-list" scroll-y>
+      <view 
+        class="dest-item" 
+        wx:for="{{destinations}}" 
+        wx:key="id"
+        bindtap="selectDest"
+        data-id="{{item.id}}"
+      >
+        <text class="dest-name">{{item.name}}</text>
+        <text class="dest-desc">{{item.desc}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 加载提示 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>地图加载中...</text>
   </view>
 </view>

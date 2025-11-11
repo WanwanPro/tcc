@@ -13,28 +13,35 @@
           text-color="#bfcbd9"
           active-text-color="#409EFF"
           :collapse="isCollapse"
-          router
+          :router="false"
         >
           <template v-for="route in menuRoutes" :key="route.path">
-            <!-- 没有子菜单的路由 -->
-            <el-menu-item v-if="!route.children || route.children.length === 0" :index="route.path">
-              <el-icon><component :is="route.meta?.icon || 'Menu'" /></el-icon>
+            <!-- 仪表盘特殊处理：直接显示为顶级菜单项 -->
+            <el-menu-item v-if="route.name === 'Dashboard'" :index="route.path" @click="handleMenuClick(route.path)">
+              <el-icon v-if="route.meta?.icon"><component :is="route.meta.icon" /></el-icon>
               <template #title>{{ route.meta?.title }}</template>
             </el-menu-item>
             
-            <!-- 有子菜单的路由 -->
+            <!-- 没有子菜单的其他路由 -->
+            <el-menu-item v-else-if="!route.children || route.children.length === 0" :index="route.path" @click="handleMenuClick(route.path)">
+              <el-icon v-if="route.meta?.icon"><component :is="route.meta.icon" /></el-icon>
+              <template #title>{{ route.meta?.title }}</template>
+            </el-menu-item>
+            
+            <!-- 有子菜单的其他路由 -->
             <el-sub-menu v-else :index="route.path">
               <template #title>
-                <el-icon><component :is="route.meta?.icon || 'Menu'" /></el-icon>
+                <el-icon v-if="route.meta?.icon"><component :is="route.meta.icon" /></el-icon>
                 <span>{{ route.meta?.title }}</span>
               </template>
               
               <el-menu-item
                 v-for="child in route.children"
                 :key="child.path"
-                :index="route.path + '/' + child.path"
+                :index="child.path === '' ? route.path : route.path + '/' + child.path"
+                @click="handleMenuClick(child.path === '' ? route.path : route.path + '/' + child.path)"
               >
-                <el-icon><component :is="child.meta?.icon || 'Menu'" /></el-icon>
+                <el-icon v-if="child.meta?.icon"><component :is="child.meta.icon" /></el-icon>
                 <template #title>{{ child.meta?.title }}</template>
               </el-menu-item>
             </el-sub-menu>
@@ -75,7 +82,13 @@
         
         <!-- 主体内容 -->
         <el-main class="main-content">
-          <router-view />
+          <router-view v-slot="{ Component, route }">
+            <transition name="fade-transform" mode="out-in">
+              <keep-alive :include="['ParkingSpaces', 'ParkingStatus', 'ParkingRecords', 'ParkingFees', 'ParkingStatistics']">
+                <component :is="Component" :key="route.path" v-if="Component" />
+              </keep-alive>
+            </transition>
+          </router-view>
         </el-main>
       </el-container>
     </el-container>
@@ -83,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessageBox } from 'element-plus'
@@ -108,9 +121,30 @@ const activeMenu = computed(() => {
 // 菜单路由
 const menuRoutes = computed(() => {
   return router.options.routes.filter(route => 
-    !route.meta?.hidden && route.path !== '/login'
+    !route.meta?.hidden &&
+    route.path !== '/login' &&
+    route.meta?.title
   )
 })
+
+// 处理菜单点击
+const handleMenuClick = (path) => {
+  if (route.path !== path) {
+    router.push(path).catch(err => {
+      console.error('路由跳转错误:', err)
+    })
+  }
+}
+
+// 监听路由变化，确保菜单状态正确
+watch(
+  () => route.path,
+  (newPath) => {
+    // 路由变化时，可以在这里添加额外的逻辑
+    console.log('路由变化:', newPath)
+  },
+  { immediate: true }
+)
 
 // 切换侧边栏
 const toggleSidebar = () => {
@@ -147,6 +181,8 @@ const handleCommand = (command) => {
   .sidebar {
     background-color: #304156;
     transition: width 0.3s;
+    padding: 0;
+    --el-aside-padding: 0;
     
     .logo-container {
       height: 50px;
@@ -207,6 +243,23 @@ const handleCommand = (command) => {
   .main-content {
     background-color: #f0f2f5;
     padding: 20px;
+    overflow-y: auto;
   }
+}
+
+// 路由过渡动画
+.fade-transform-enter-active,
+.fade-transform-leave-active {
+  transition: all 0.3s;
+}
+
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
 }
 </style>

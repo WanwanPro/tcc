@@ -114,11 +114,11 @@ class DataSyncService {
    */
   async syncParkingLotData(parkingLotId) {
     try {
-      // 1. 从System后台获取停车位数据
-      const systemSpaces = await ParkingSpace.find({ lotId: parkingLotId });
+      // 1. 从System后台获取停车位数据（通过API）
+      const systemSpaces = await apiAdapterService.getParkingSpacesFromSystem(parkingLotId);
       
-      // 2. 从微信小程序后端获取停车位数据
-      const miniprogramSpaces = await apiAdapterService.getParkingSpaces(parkingLotId);
+      // 2. 从微信小程序后端获取停车位数据（从本地数据库）
+      const miniprogramSpaces = await ParkingSpace.find({});
       
       // 3. 比较数据并找出差异
       const differences = this.compareParkingSpaces(systemSpaces, miniprogramSpaces);
@@ -184,7 +184,16 @@ class DataSyncService {
         miniprogramOnly.push(space);
       } else {
         // 检查状态是否一致
-        if (systemSpace.status !== space.status) {
+        // System后台使用英文状态，微信小程序使用中文状态，需要转换后比较
+        const statusMapping = {
+          'available': '空闲',
+          'occupied': '占用',
+          'reserved': '预定',
+          'maintenance': '占用'
+        };
+        const systemStatusInChinese = statusMapping[systemSpace.status] || '空闲';
+        
+        if (systemStatusInChinese !== space.status) {
           conflicts.push({
             spaceId,
             systemStatus: systemSpace.status,
@@ -212,9 +221,14 @@ class DataSyncService {
     
     for (const space of spaces) {
       try {
-        await apiAdapterService.updateParkingSpaceStatus(
-          space.spaceId,
-          space.status
+        // 更新本地数据库中的停车位
+        await ParkingSpace.findOneAndUpdate(
+          { spaceId: space.spaceId },
+          { 
+            status: space.status,
+            updatedAt: new Date()
+          },
+          { upsert: true, new: true }
         );
       } catch (error) {
         console.error(`同步停车位 ${space.spaceId} 到微信小程序后端失败:`, error.message);
@@ -273,10 +287,23 @@ class DataSyncService {
     
     for (const conflict of conflicts) {
       try {
-        // 将System后台的状态同步到微信小程序后端
-        await apiAdapterService.updateParkingSpaceStatus(
-          conflict.spaceId,
-          conflict.systemStatus
+        // 将System后台的状态同步到微信小程序后端（更新本地数据库）
+        // 需要将System的英文状态转换为中文状态
+        const statusMapping = {
+          'available': '空闲',
+          'occupied': '占用',
+          'reserved': '预定',
+          'maintenance': '占用'
+        };
+        const miniprogramStatus = statusMapping[conflict.systemStatus] || '空闲';
+        
+        await ParkingSpace.findOneAndUpdate(
+          { spaceId: conflict.spaceId },
+          { 
+            status: miniprogramStatus,
+            updatedAt: new Date()
+          },
+          { upsert: true, new: true }
         );
       } catch (error) {
         console.error(`解决停车位 ${conflict.spaceId} 冲突失败:`, error.message);

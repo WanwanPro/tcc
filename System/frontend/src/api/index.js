@@ -34,6 +34,30 @@ export function updateParkingSpace(id, data) {
   })
 }
 
+// 系统管理相关API
+export function resetParkingSpaces(lotId) {
+  return request({
+    url: '/admin/system/reset-parking-spaces',
+    method: 'post',
+    data: { lotId }
+  })
+}
+
+export function startDataSimulation(lotId, interval = 3000, maxChanges = 10) {
+  return request({
+    url: '/admin/system/start-data-simulation',
+    method: 'post',
+    data: { lotId, interval, maxChanges }
+  })
+}
+
+export function stopDataSimulation() {
+  return request({
+    url: '/admin/system/stop-data-simulation',
+    method: 'post'
+  })
+}
+
 // 批量更新车位状态
 export function batchUpdateSpaceStatus(data) {
   return request({

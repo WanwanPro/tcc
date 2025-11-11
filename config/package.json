@@ -1,0 +1,22 @@
+{
+  "name": "tcc-parking-system",
+  "version": "1.0.0",
+  "description": "TCC智能停车场管理系统",
+  "scripts": {
+    "start-all": "concurrently -n \"TCC,System,Frontend\" -c \"blue,green,yellow\" --kill-others-on-fail \"npm run dev --prefix backend\" \"npm run dev --prefix System/backend\" \"npm run dev --prefix System/frontend\"",
+    "start-tcc": "npm run dev --prefix backend",
+    "start-system": "npm run dev --prefix System/backend",
+    "start-frontend": "npm run dev --prefix System/frontend",
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix System/backend && npm install --prefix System/frontend",
+    "gen-map-data": "node scripts/convert-to-geojson.js && node scripts/generate-navigation-graph.js && node scripts/convert-geojson-to-js.js && node scripts/convert-navgraph-to-js.js",
+    "gen-geojson": "node scripts/convert-to-geojson.js",
+    "gen-navgraph": "node scripts/generate-navigation-graph.js",
+    "convert-data": "node scripts/convert-geojson-to-js.js && node scripts/convert-navgraph-to-js.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "mongoose": "^8.19.2"
+  }
+}

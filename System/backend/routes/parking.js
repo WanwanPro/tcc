@@ -2,7 +2,7 @@ const express = require('express')
 const mongoose = require('mongoose')
 const ParkingLot = require('../models/ParkingLot')
 const ParkingSpace = require('../models/ParkingSpace')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 const router = express.Router()
 
@@ -197,6 +197,11 @@ router.delete('/lots/:id', async (req, res) => {
 // 获取停车位列表
 router.get('/spaces', async (req, res) => {
   try {
+    console.log('[parking.js /spaces] 收到请求:', {
+      query: req.query,
+      url: req.url
+    })
+    
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
     const skip = (page - 1) * limit
@@ -231,6 +236,10 @@ router.get('/spaces', async (req, res) => {
       ]
     }
     
+    // 先检查数据库总数
+    const dbTotal = await ParkingSpace.countDocuments({})
+    console.log('[parking.js /spaces] 数据库总车位数:', dbTotal)
+    
     // 执行查询
     const spaces = await ParkingSpace.find(query)
       .populate('lotId', 'name')
@@ -240,6 +249,12 @@ router.get('/spaces', async (req, res) => {
       .limit(limit)
     
     const total = await ParkingSpace.countDocuments(query)
+    
+    console.log('[parking.js /spaces] 查询结果:', {
+      queryTotal: total,
+      dbTotal: dbTotal,
+      returnedCount: spaces.length
+    })
     
     res.status(200).json({
       success: true,
@@ -254,7 +269,7 @@ router.get('/spaces', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error(error)
+    console.error('[parking.js /spaces] 错误:', error)
     res.status(500).json({
       success: false,
       message: '服务器错误'

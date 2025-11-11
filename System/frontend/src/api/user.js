@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 
-// 用户登录
+// 用户认证相关API
 export function login(data) {
   return request({
     url: '/admin/auth/login',
@@ -9,7 +9,6 @@ export function login(data) {
   })
 }
 
-// 获取用户信息
 export function getInfo() {
   return request({
     url: '/admin/auth/info',
@@ -17,7 +16,6 @@ export function getInfo() {
   })
 }
 
-// 用户登出
 export function logout() {
   return request({
     url: '/admin/auth/logout',
@@ -25,54 +23,128 @@ export function logout() {
   })
 }
 
-// 获取用户列表
+export function changePassword(data) {
+  return request({
+    url: '/admin/auth/change-password',
+    method: 'put',
+    data
+  })
+}
+
+export function updateProfile(data) {
+  return request({
+    url: '/api/auth/profile',
+    method: 'put',
+    data
+  })
+}
+
+// 用户管理相关API
 export function getUserList(params) {
   return request({
-    url: '/admin/users',
+    url: '/api/admin/users/users',
     method: 'get',
     params
   })
 }
 
-// 获取用户详情
 export function getUserDetail(id) {
   return request({
-    url: `/admin/users/${id}`,
+    url: `/api/admin/users/users/${id}`,
     method: 'get'
   })
 }
 
-// 更新用户状态
-export function updateUserStatus(id, status) {
+export function createUser(data) {
   return request({
-    url: `/admin/users/${id}/status`,
-    method: 'put',
-    data: { status }
-  })
-}
-
-// 获取黑名单
-export function getBlacklist(params) {
-  return request({
-    url: '/admin/users/blacklist',
-    method: 'get',
-    params
-  })
-}
-
-// 添加黑名单
-export function addToBlacklist(data) {
-  return request({
-    url: '/admin/users/blacklist',
+    url: '/api/admin/users/users',
     method: 'post',
     data
   })
 }
 
-// 移除黑名单
+export function updateUser(id, data) {
+  return request({
+    url: `/api/admin/users/users/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+export function deleteUser(id) {
+  return request({
+    url: `/api/admin/users/users/${id}`,
+    method: 'delete'
+  })
+}
+
+export function resetUserPassword(id, data) {
+  return request({
+    url: `/api/admin/users/users/${id}/password`,
+    method: 'put',
+    data
+  })
+}
+
+export function updateUserStatus(id, data) {
+  return request({
+    url: `/api/admin/users/users/${id}/status`,
+    method: 'put',
+    data
+  })
+}
+
+// 角色管理相关API
+export function getRolesList() {
+  return request({
+    url: '/api/admin/users/roles',
+    method: 'get'
+  })
+}
+
+export function createRole(data) {
+  return request({
+    url: '/api/admin/users/roles',
+    method: 'post',
+    data
+  })
+}
+
+export function updateRole(id, data) {
+  return request({
+    url: `/api/admin/users/roles/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+export function deleteRole(id) {
+  return request({
+    url: `/api/admin/users/roles/${id}`,
+    method: 'delete'
+  })
+}
+
+// 黑名单管理相关API
+export function getBlacklist(params) {
+  return request({
+    url: '/api/admin/users/blacklist',
+    method: 'get',
+    params
+  })
+}
+
+export function addToBlacklist(data) {
+  return request({
+    url: '/api/admin/users/blacklist',
+    method: 'post',
+    data
+  })
+}
+
 export function removeFromBlacklist(id) {
   return request({
-    url: `/admin/users/blacklist/${id}`,
+    url: '/api/admin/users/blacklist/${id}',
     method: 'delete'
   })
 }

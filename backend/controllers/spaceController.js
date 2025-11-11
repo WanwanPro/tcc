@@ -5,22 +5,26 @@ const dataModelMappingService = require('../services/dataModelMappingService');
 // 获取所有车位状态
 exports.getAllSpaces = async (req, res) => {
   try {
-    const { parkingId, useSystemApi } = req.query;
+    const { parkingId, useLocalApi } = req.query;
     
     let spaces;
     
-    // 如果请求中指定使用System API，则从System后台获取数据
-    if (useSystemApi === 'true') {
+    // 默认从System后台获取数据（统一数据源）
+    // 只有当 useLocalApi='true' 时才使用本地数据
+    if (useLocalApi === 'true') {
+      // 使用本地数据（仅用于测试或特殊场景）
+      spaces = await ParkingSpace.find({});
+      console.log('[getAllSpaces] 使用本地数据，共', spaces.length, '个车位');
+    } else {
+      // 默认从System后台获取数据（与后台管理系统使用同一数据源）
       try {
         spaces = await apiAdapterService.getParkingSpacesFromSystem(parkingId);
+        console.log('[getAllSpaces] 从System后台获取数据，共', spaces.length, '个车位');
       } catch (systemError) {
-        console.error('从System后台获取数据失败，使用本地数据:', systemError.message);
+        console.error('[getAllSpaces] 从System后台获取数据失败，使用本地数据:', systemError.message);
         // 如果System API失败，回退到本地数据
         spaces = await ParkingSpace.find({});
       }
-    } else {
-      // 默认使用本地数据
-      spaces = await ParkingSpace.find({});
     }
     
     res.json({
@@ -42,6 +46,14 @@ exports.getAllSpaces = async (req, res) => {
 exports.updateSpaceStatus = async (req, res) => {
   try {
     const { spaceId, status, syncToSystem } = req.body;
+    
+    // 验证输入参数
+    if (!spaceId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供车位ID和状态'
+      });
+    }
     
     // 验证状态值
     const validStatus = ['空闲', '占用', '预定'];
@@ -109,9 +121,13 @@ exports.syncAllSpacesToSystem = async (req, res) => {
     // 同步到System后台
     const syncResult = await apiAdapterService.syncParkingSpacesToSystem(systemSpaces);
     
+    // 处理同步结果，确保数据结构正确
+    const successCount = syncResult.data?.created || syncResult.data?.updated || 0;
+    const totalCount = syncResult.data?.total || syncResult.success || syncResult.total || 0;
+    
     res.json({
       success: true,
-      message: `车位数据同步完成，成功: ${syncResult.success}/${syncResult.total}`,
+      message: `车位数据同步完成，成功: ${successCount}/${totalCount}`,
       data: syncResult
     });
   } catch (error) {

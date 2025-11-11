@@ -2,7 +2,7 @@ const express = require('express')
 const Transaction = require('../models/Transaction')
 const ParkingLot = require('../models/ParkingLot')
 const PricingRule = require('../models/PricingRule')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 const router = express.Router()
 
