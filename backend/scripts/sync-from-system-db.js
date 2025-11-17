@@ -7,8 +7,8 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 // 连接两个数据库
-const SYSTEM_DB_URI = process.env.SYSTEM_MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_admin';
-const TCC_DB_URI = process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_system';
+const SYSTEM_DB_URI = process.env.SYSTEM_MONGODB_URI || 'mongodb://localhost:27017/parking_admin';
+const TCC_DB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_system';
 
 // System 数据库模型（简化版，只读取需要的数据）
 let systemConn;

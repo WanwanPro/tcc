@@ -67,7 +67,7 @@ router.get('/', auth, async (req, res) => {
     // 执行查询
     const [spaces, total] = await Promise.all([
       ParkingSpace.find(query)
-        .populate('parkingLotId', 'name')
+        .populate('lotId', 'name')
         .sort(sortOption)
         .skip(skip)
         .limit(limitNum),

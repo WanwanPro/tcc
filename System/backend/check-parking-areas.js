@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+mongoose.connect('mongodb://localhost:27017/parking_admin', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(async () => {

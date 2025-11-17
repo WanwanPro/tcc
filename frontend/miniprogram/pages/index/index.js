@@ -81,6 +81,9 @@ Page({
           // 计算空闲车位数
           const spaces = res.data.data || [];
           console.log('[微信小程序] 获取到车位数据:', spaces.length, '个');
+          if (spaces.length === 0) {
+            wx.showToast({ title: '未获取到数据', icon: 'error' });
+          }
           
           // 统计所有状态分布
           const statusBreakdown = spaces.reduce((acc, space) => {

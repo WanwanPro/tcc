@@ -5,7 +5,7 @@ const ParkingLot = require('./models/ParkingLot');
 const MapNode = require('./models/MapNode');
 
 // 连接数据库
-mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+mongoose.connect('mongodb://localhost:27017/parking_admin', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(async () => {

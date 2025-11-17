@@ -1,6 +1,9 @@
+const mongoose = require('mongoose');
 const ParkingSpace = require('../models/ParkingSpace');
 const apiAdapterService = require('../services/apiAdapterService');
 const dataModelMappingService = require('../services/dataModelMappingService');
+const { upsert } = require('../../shared/dal/atomic');
+const { connectUnified } = require('../../shared/dal/mongo');
 
 // 获取所有车位状态
 exports.getAllSpaces = async (req, res) => {
@@ -12,9 +15,19 @@ exports.getAllSpaces = async (req, res) => {
     // 默认从System后台获取数据（统一数据源）
     // 只有当 useLocalApi='true' 时才使用本地数据
     if (useLocalApi === 'true') {
-      // 使用本地数据（仅用于测试或特殊场景）
-      spaces = await ParkingSpace.find({});
-      console.log('[getAllSpaces] 使用本地数据，共', spaces.length, '个车位');
+      let connected = true
+      try {
+        await connectUnified()
+      } catch (e) {
+        connected = false
+        console.error('[getAllSpaces] 本地数据库连接失败，返回空数据:', e && e.message ? e.message : e)
+      }
+      if (connected && mongoose.connection && mongoose.connection.readyState === 1) {
+        spaces = await ParkingSpace.find({});
+        console.log('[getAllSpaces] 使用本地数据，共', spaces.length, '个车位');
+      } else {
+        spaces = []
+      }
     } else {
       // 默认从System后台获取数据（与后台管理系统使用同一数据源）
       try {
@@ -22,22 +35,41 @@ exports.getAllSpaces = async (req, res) => {
         console.log('[getAllSpaces] 从System后台获取数据，共', spaces.length, '个车位');
       } catch (systemError) {
         console.error('[getAllSpaces] 从System后台获取数据失败，使用本地数据:', systemError.message);
-        // 如果System API失败，回退到本地数据
-        spaces = await ParkingSpace.find({});
+        try {
+          let connected = true
+          try {
+            await connectUnified()
+          } catch (e) {
+            connected = false
+            console.error('[getAllSpaces] 本地数据库连接失败，返回空数据:', e && e.message ? e.message : e)
+          }
+          if (connected && mongoose.connection && mongoose.connection.readyState === 1) {
+            spaces = await ParkingSpace.find({});
+          } else {
+            spaces = []
+          }
+        } catch (localError) {
+          console.error('[getAllSpaces] 获取本地数据失败:', localError.message);
+          spaces = []
+        }
       }
     }
     
+    if (!Array.isArray(spaces)) {
+      spaces = [];
+    }
+
     res.json({
       success: true,
-      message: '获取车位状态成功',
+      message: spaces.length > 0 ? '获取车位状态成功' : '未获取到数据',
       data: spaces
     });
   } catch (error) {
     console.error('获取车位状态错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取车位状态失败',
-      error: error.message
+    res.json({
+      success: true,
+      message: '获取车位状态失败，已返回空数据',
+      data: []
     });
   }
 };
@@ -64,15 +96,11 @@ exports.updateSpaceStatus = async (req, res) => {
       });
     }
     
-    // 更新本地车位状态
-    const updatedSpace = await ParkingSpace.findOneAndUpdate(
-      { spaceId },
-      { 
-        status,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    );
+    const existing = await ParkingSpace.findOne({ spaceId })
+    const id = existing ? existing._id : new mongoose.Types.ObjectId()
+    const doc = { _id: id, spaceId, status, updatedAt: new Date() }
+    await upsert('parkingspaces', doc, ['view_admin_parkingspaces', 'view_miniprogram_parkingspaces'])
+    const updatedSpace = await ParkingSpace.findOne({ spaceId })
     
     if (!updatedSpace) {
       return res.status(404).json({

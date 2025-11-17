@@ -8,7 +8,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // 连接数据库
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_admin', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_admin', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });

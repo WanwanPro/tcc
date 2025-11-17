@@ -6,7 +6,7 @@
 class RenderEngine {
   constructor(canvas, context) {
     this.canvas = canvas
-    this.ctx = context
+    this.ctx = context || (canvas && typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null)
     this.camera = {
       x: 0,
       y: 0,
@@ -17,6 +17,17 @@ class RenderEngine {
     this.mapData = null
     this.vehiclePosition = null
     this.routePath = []
+  }
+
+  setSize(width, height) {
+    if (!this.canvas) return
+    const dpr = typeof wx !== 'undefined' && wx.getDeviceInfo ? (wx.getDeviceInfo().pixelRatio || 1) : 1
+    this.canvas.width = Math.max(1, Math.floor(width * dpr))
+    this.canvas.height = Math.max(1, Math.floor(height * dpr))
+    if (this.ctx && dpr !== 1) {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0)
+      this.ctx.scale(dpr, dpr)
+    }
   }
 
   /**

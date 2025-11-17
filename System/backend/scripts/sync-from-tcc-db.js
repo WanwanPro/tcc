@@ -9,8 +9,8 @@ const path = require('path');
 require('dotenv').config();
 
 // 连接两个数据库
-const TCC_DB_URI = process.env.TCC_MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_system';
-const SYSTEM_DB_URI = process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_admin';
+const TCC_DB_URI = process.env.TCC_MONGODB_URI || 'mongodb://localhost:27017/parking_system';
+const SYSTEM_DB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_admin';
 
 // System 数据库模型（先加载，避免名称冲突）
 const ParkingSpace = require('../models/ParkingSpace');

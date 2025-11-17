@@ -4,7 +4,7 @@ const ParkingLot = require('../models/ParkingLot');
 
 async function checkSpaces() {
   try {
-    await mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+    await mongoose.connect('mongodb://localhost:27017/parking_admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true
     });

@@ -45,9 +45,13 @@ router.post('/login', async (req, res) => {
       })
     }
 
-    // 更新最后登录时间
-    admin.lastLogin = new Date()
-    await admin.save()
+    // 更新最后登录时间（推迟到响应后执行以避免阻塞）
+    setImmediate(async () => {
+      try {
+        admin.lastLogin = new Date()
+        await admin.save()
+      } catch {}
+    })
 
     // 创建JWT
     const payload = {
@@ -82,7 +86,7 @@ router.post('/login', async (req, res) => {
     console.error(error)
     res.status(500).json({
       success: false,
-      message: '服务器错误'
+      message: error && error.message ? error.message : '服务器错误'
     })
   }
 })

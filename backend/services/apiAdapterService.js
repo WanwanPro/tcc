@@ -8,7 +8,7 @@ const dataMappingService = require('./dataMappingService');
 const dataModelMappingService = require('./dataModelMappingService');
 
 // System后台管理系统API基础URL
-const SYSTEM_API_BASE_URL = process.env.SYSTEM_API_URL || 'http://localhost:5000/api';
+const SYSTEM_API_BASE_URL = process.env.SYSTEM_API_URL || 'http://localhost:5001/api';
 
 // Token缓存（避免频繁登录）
 let cachedToken = null;
@@ -20,52 +20,37 @@ let tokenExpiryTime = null;
  */
 async function getSystemAuthToken() {
   try {
-    // 检查缓存的token是否仍然有效（提前5分钟刷新）
+    const preset = process.env.SYSTEM_API_TOKEN;
     const now = Date.now();
+    if (preset) {
+      cachedToken = preset;
+      tokenExpiryTime = now + 24 * 60 * 60 * 1000;
+      return preset;
+    }
     if (cachedToken && tokenExpiryTime && now < tokenExpiryTime - 5 * 60 * 1000) {
-      console.log('[getSystemAuthToken] 使用缓存的token');
       return cachedToken;
     }
-    
-    // 需要重新登录
     const loginUrl = `${SYSTEM_API_BASE_URL}/admin/auth/login`;
-    console.log(`[getSystemAuthToken] 尝试登录: ${loginUrl}`);
-    
     const response = await axios.post(loginUrl, {
-      username: 'admin', // 使用默认管理员账户
-      password: 'admin123'
+      username: process.env.SYSTEM_API_USERNAME || 'admin',
+      password: process.env.SYSTEM_API_PASSWORD || '123456'
     });
-    
-    // 检查响应格式并提取token
     let token = null;
     if (response.data && response.data.data && response.data.data.token) {
       token = response.data.data.token;
     } else if (response.data && response.data.token) {
       token = response.data.token;
     } else {
-      console.error('[getSystemAuthToken] 登录响应格式异常:', response.data);
       throw new Error('登录响应中未找到token');
     }
-    
-    // 缓存token，设置24小时过期（JWT默认24小时）
     cachedToken = token;
-    tokenExpiryTime = now + 24 * 60 * 60 * 1000; // 24小时后过期
-    
-    console.log('[getSystemAuthToken] 登录成功，token已缓存');
+    tokenExpiryTime = now + 24 * 60 * 60 * 1000;
     return token;
-    
   } catch (error) {
     console.error('获取System后台管理系统认证令牌失败:', error.message);
     if (error.response) {
       console.error('API响应状态:', error.response.status);
       console.error('API响应数据:', error.response.data);
-      
-      // 如果是429错误（请求过多），清除缓存强制等待
-      if (error.response.status === 429) {
-        console.warn('[getSystemAuthToken] 请求过于频繁，清除缓存等待重试');
-        cachedToken = null;
-        tokenExpiryTime = null;
-      }
     }
     throw new Error('认证失败');
   }
@@ -83,7 +68,7 @@ async function getParkingSpacesFromSystem(lotId = 'default_lot') {
     // 直接使用System后台管理系统的停车位接口（与前端使用同一接口）
     // 使用limit=1000获取所有车位数据
     const response = await axios.get(
-      `${SYSTEM_API_BASE_URL}/admin/parking/spaces`,
+      `${SYSTEM_API_BASE_URL}/admin/parking-spaces`,
       {
         params: {
           limit: 1000,

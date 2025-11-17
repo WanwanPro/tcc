@@ -81,10 +81,13 @@ Page({
     const app = getApp();
     
     wx.request({
-      url: `${app.globalData.baseUrl}/spaces`,
+      url: `${app.globalData.baseUrl}/spaces?useLocalApi=true`,
       success: (res) => {
         if (res.data.success) {
           const spaces = res.data.data;
+          if (!Array.isArray(spaces) || spaces.length === 0) {
+            wx.showToast({ title: '未获取到数据', icon: 'error' });
+          }
           this.processMapData(spaces);
         } else {
           console.error('获取车位信息失败:', res.data.message);

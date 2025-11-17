@@ -52,31 +52,33 @@ app.get('/health', (req, res) => {
 // 错误处理
 // app.use(errorHandler)
 
-// 数据库连接
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_system', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
-    console.log(`MongoDB Connected: ${conn.connection.host}`)
-  } catch (error) {
-    console.error(`Error: ${error.message}`)
-    process.exit(1)
-  }
-}
+const { connectUnified } = require('../shared/dal/mongo')
+const { subscribe } = require('../shared/changeStreams')
 
 // 启动服务器
 const PORT = process.env.PORT || 3001
 
 const startServer = async () => {
-  await connectDB()
-  
-  // 监听所有网络接口 (0.0.0.0)，允许局域网访问
+  const conn = await connectUnified()
+  try {
+    if (process.env.ENABLE_CHANGE_STREAMS === '1') {
+      subscribe(['parkingspaces'], () => {})
+    }
+  } catch (e) {
+    console.log(`[ChangeStreamDisabled] ${e && e.message ? e.message : e}`)
+  }
   app.listen(PORT, '0.0.0.0', () => {
+    const os = require('os')
+    const ifs = os.networkInterfaces()
+    let ip = '127.0.0.1'
+    for (const k of Object.keys(ifs)) {
+      for (const i of ifs[k] || []) {
+        if (i && i.family === 'IPv4' && !i.internal) { ip = i.address; break }
+      }
+    }
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`)
     console.log(`Local: http://localhost:${PORT}`)
-    console.log(`Network: http://192.168.0.78:${PORT}`)
+    console.log(`Network: http://${ip}:${PORT}`)
   })
 }
 

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 async function testMiniprogramDB() {
   try {
     console.log('正在测试微信小程序后端数据库连接...');
-    const conn = await mongoose.connect('mongodb://192.168.0.78:27017/parking_system', {
+    const conn = await mongoose.connect('mongodb://localhost:27017/parking_system', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -19,7 +19,7 @@ async function testMiniprogramDB() {
 async function testAdminDB() {
   try {
     console.log('正在测试后台管理系统后端数据库连接...');
-    const conn = await mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+    const conn = await mongoose.connect('mongodb://localhost:27017/parking_admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

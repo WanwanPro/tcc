@@ -11,7 +11,7 @@ const ParkingSpace = require('../models/ParkingSpace');
 // 读取环境变量
 require('dotenv').config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://192.168.0.78:27017/parking_system';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/parking_system';
 
 async function initTCSpaces() {
   try {

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 async function testSystemDB() {
   try {
     console.log('正在测试System后台数据库连接...');
-    const conn = await mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+    const conn = await mongoose.connect('mongodb://localhost:27017/parking_admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -38,7 +38,7 @@ async function testSystemDB() {
 async function testMiniprogramDB() {
   try {
     console.log('\n正在测试微信小程序后端数据库连接...');
-    const conn = await mongoose.connect('mongodb://192.168.0.78:27017/parking_system', {
+    const conn = await mongoose.connect('mongodb://localhost:27017/parking_system', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -74,7 +74,7 @@ async function testModelOperations() {
     console.log('\n测试数据模型操作...');
     
     // 连接System后台数据库
-    await mongoose.connect('mongodb://192.168.0.78:27017/parking_admin', {
+    await mongoose.connect('mongodb://localhost:27017/parking_admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -90,7 +90,7 @@ async function testModelOperations() {
     await mongoose.connection.close();
     
     // 连接微信小程序后端数据库
-    await mongoose.connect('mongodb://192.168.0.78:27017/parking_system', {
+    await mongoose.connect('mongodb://localhost:27017/parking_system', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
