@@ -17,6 +17,9 @@ class RenderEngine {
     this.mapData = null
     this.vehiclePosition = null
     this.routePath = []
+    this.destinationSpaceId = null
+    this.isNavigating = false
+    this.occupiedOverrides = new Set()
   }
 
   setSize(width, height) {
@@ -162,7 +165,14 @@ class RenderEngine {
 
       switch (type) {
         case 'parking_spot':
-          const color = feature.properties.status === 'occupied' ? '#FF5252' : '#4CAF50'
+          let color
+          if (this.occupiedOverrides && this.occupiedOverrides.has(feature.properties.spaceId)) {
+            color = '#FF5252'
+          } else if (this.isNavigating && this.destinationSpaceId && feature.properties.spaceId === this.destinationSpaceId) {
+            color = '#FFEB3B'
+          } else {
+            color = feature.properties.status === 'occupied' ? '#FF5252' : '#4CAF50'
+          }
           this.drawPolygon(geometry.coordinates[0], color, '#333')
           break
 
@@ -253,6 +263,7 @@ class RenderEngine {
 }
 
 module.exports = RenderEngine
+
 
 
 

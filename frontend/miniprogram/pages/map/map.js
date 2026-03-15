@@ -148,6 +148,25 @@ Page({
     // 如果渲染引擎已初始化，更新渲染
     if (this.renderEngine) {
       this.renderEngine.mapData = mapData;
+      // 居中相机到地图要素
+      try {
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+        for (const f of features) {
+          const coords = f.geometry.coordinates[0];
+          for (const c of coords) {
+            if (c[0] < minLng) minLng = c[0];
+            if (c[1] < minLat) minLat = c[1];
+            if (c[0] > maxLng) maxLng = c[0];
+            if (c[1] > maxLat) maxLat = c[1];
+          }
+        }
+        if (isFinite(minLng) && isFinite(minLat) && isFinite(maxLng) && isFinite(maxLat)) {
+          const centerLng = (minLng + maxLng) / 2;
+          const centerLat = (minLat + maxLat) / 2;
+          const world = this.renderEngine.geoToWorld(centerLng, centerLat);
+          this.renderEngine.setCamera(world.x, world.y);
+        }
+      } catch (e) {}
       this.render();
     }
   },
@@ -253,27 +272,45 @@ Page({
 
     // 计算目标相机位置
     const targetWorld = this.renderEngine.geoToWorld(centerLng, centerLat);
-    const targetScreen = this.renderEngine.worldToScreen(targetWorld.x, targetWorld.y);
+    
+    // 获取当前相机位置
+    const startX = this.renderEngine.camera.x;
+    const startY = this.renderEngine.camera.y;
 
     // 简单的平滑移动动画
-    const steps = 20;
+    const steps = 30;
     let currentStep = 0;
     
     const animate = () => {
-      if (currentStep >= steps) return;
+      if (currentStep >= steps) {
+        // 确保最终位置准确
+        this.renderEngine.setCamera(targetWorld.x, targetWorld.y);
+        this.render();
+        return;
+      }
       
       const progress = currentStep / steps;
       const easeProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
       
-      // 这里可以添加更复杂的相机移动逻辑
-      // 目前简化处理，直接渲染
+      // 插值计算当前位置
+      const currentX = startX + (targetWorld.x - startX) * easeProgress;
+      const currentY = startY + (targetWorld.y - startY) * easeProgress;
+      
+      this.renderEngine.setCamera(currentX, currentY);
+      this.render();
       
       currentStep++;
-      this.render();
-      requestAnimationFrame(animate);
+      this.canvas.requestAnimationFrame(animate);
     };
     
-    animate();
+    // 使用 canvas 对象的 requestAnimationFrame
+    const query = wx.createSelectorQuery();
+    query.select('#parking-canvas').node().exec((res) => {
+      if (res[0]) {
+        this.canvas = res[0].node;
+        this.canvas.requestAnimationFrame(animate);
+      }
+    });
   },
 
   // 导航到车位
@@ -285,21 +322,45 @@ Page({
       });
       return;
     }
-
-    // 这里可以调用导航API或跳转到导航页面
-    wx.showToast({
-      title: `正在规划到${this.data.selectedSpace.spaceId}的路线`,
-      icon: 'loading',
-      duration: 1500
-    });
-
-    // 模拟导航过程
-    setTimeout(() => {
+    if (this.data.selectedSpace.status === 'occupied') {
       wx.showToast({
-        title: '路线规划完成',
-        icon: 'success'
+        title: '该车位已占用',
+        icon: 'error'
       });
-    }, 1500);
+      return;
+    }
+
+    const spaceId = this.data.selectedSpace.spaceId;
+    let centerLng = null;
+    let centerLat = null;
+
+    if (this.mapData) {
+      const feature = this.mapData.features.find(f => f.properties.spaceId === spaceId);
+      if (feature) {
+        const coords = feature.geometry.coordinates[0];
+        centerLng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
+        centerLat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+      }
+    }
+
+    if (centerLng === null || centerLat === null) {
+      const p = this.data.selectedSpace.position;
+      if (p && Array.isArray(p.lngLat)) {
+        centerLng = p.lngLat[0];
+        centerLat = p.lngLat[1];
+      } else if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+        centerLng = 113.0 + p.x / 100000;
+        centerLat = 23.0 + p.y / 100000;
+      }
+    }
+
+    if (centerLng === null || centerLat === null) {
+      wx.showToast({ title: '无法定位车位', icon: 'error' });
+      return;
+    }
+
+    const url = `/pages/navigation/navigation?spaceId=${spaceId}&lng=${centerLng}&lat=${centerLat}`;
+    wx.navigateTo({ url });
   },
 
   // 刷新车位状态

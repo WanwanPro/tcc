@@ -1,15 +1,18 @@
 .container {
-  padding: 20rpx;
-  background-color: #f5f5f5;
+  padding: 24rpx;
+  background-color: #f7f8fa;
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .header {
-  background-color: #fff;
-  border-radius: 10rpx;
-  padding: 40rpx 20rpx;
+  background: linear-gradient(135deg, #07c160, #10ad56);
+  border-radius: 20rpx;
+  padding: 60rpx 30rpx;
   text-align: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(7, 193, 96, 0.2);
+  color: #fff;
 }
 
 .user-info {
@@ -19,36 +22,45 @@
 }
 
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
+  width: 140rpx;
+  height: 140rpx;
   border-radius: 50%;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  background-color: #fff;
 }
 
 .nickname {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1px;
 }
 
 .login-prompt {
-  font-size: 28rpx;
-  color: #666;
+  font-size: 30rpx;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .menu-list {
   background-color: #fff;
-  border-radius: 10rpx;
-  margin-bottom: 20rpx;
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
   overflow: hidden;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
 }
 
 .menu-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20rpx;
-  border-bottom: 1rpx solid #eee;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  transition: background-color 0.2s;
+}
+
+.menu-item:active {
+  background-color: #fafafa;
 }
 
 .menu-item:last-child {
@@ -56,14 +68,14 @@
 }
 
 .menu-text {
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #333;
 }
 
 .arrow {
-  font-size: 40rpx;
-  color: #999;
-  font-weight: bold;
+  font-size: 36rpx;
+  color: #ccc;
+  font-weight: normal;
 }
 
 .app-info {
@@ -74,11 +86,11 @@
 .version {
   display: block;
   font-size: 24rpx;
-  color: #666;
-  margin-bottom: 10rpx;
+  color: #999;
+  margin-bottom: 8rpx;
 }
 
 .copyright {
-  font-size: 20rpx;
-  color: #999;
+  font-size: 22rpx;
+  color: #bbb;
 }

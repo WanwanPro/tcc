@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "智能停车导航",
-  "usingComponents": {}
+  "usingComponents": {},
+  "navigationStyle": "custom"
 }

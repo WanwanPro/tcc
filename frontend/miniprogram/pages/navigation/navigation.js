@@ -1,434 +1,851 @@
 // pages/navigation/navigation.js
-const RenderEngine = require('../../utils/render-engine')
-const { astar, findNearestNode } = require('../../utils/astar')
+const mapData = require('../../assets/map_elements.js');
+const navGraph = require('../../assets/navigation_graph.js');
+const { PathfindingManager } = require('../../utils/pathfinding/index.js');
+
+/**
+ * 1. 配置与常量
+ */
+const CELL_SIZE = 40;
+const WALL = 1;
+const ROAD = 0;
+const SPOT = 2;
+const TARGET = 3;
+const OCCUPIED = 4;
+const CAMERA_FOLLOW_DISTANCE = 180;
+const CAMERA_PARK_DISTANCE = 38;
+const CAMERA_HEADING_LERP = 0.08;
+const CAMERA_FOLLOW_LERP = 0.055;
+const CAMERA_PARK_LERP = 0.12;
+const CAMERA_RETURN_DAMPING = 0.9;
+const CAMERA_RETURN_EPSILON = 0.002;
+const CAMERA_LOWER_THIRD_RATIO = 0.54;
+const HUD_TOP_CLIP_RPX = 400;
+const HUD_BOTTOM_CLIP_RPX = 250;
+const WORLD_ROTATION = -Math.PI / 2;
+const CAMERA_HORIZONTAL_OFFSET = -56;
+
+// 全局变量 (页面级)
+let car, pathfindingManager, currentPath = [];
+let mapGrid = [];
+let spotMap = {};
+let gridToSpaceMap = {};
+let viewMode = 'FOLLOW';
+let cameraAngle = 0;
+let cameraPos = { x: 0, y: 0 };
+let cameraHeading = 0;
+let arrivalHandled = false;
+let isDragging = false;
+let lastMouse = { x: 0, y: 0 };
+let manualViewOffset = 0;
+let currentTarget = null;
+let carStartGrid = { x: 0, y: 0 };
+let currentStats = {};
+let touchSession = null;
+
+/**
+ * 2. 车辆类定义
+ */
+class Car {
+  constructor(x, y) {
+    this.gridX = x;
+    this.gridY = y;
+    this.x = x * CELL_SIZE + CELL_SIZE / 2;
+    this.y = y * CELL_SIZE + CELL_SIZE / 2;
+    this.angle = 0;
+    this.path = [];
+    this.targetIndex = 0;
+    this.isMoving = false;
+    this.speed = 1.5;
+  }
+
+  setPath(path) {
+    this.path = path;
+    this.targetIndex = 1;
+    this.isMoving = true;
+  }
+
+  update() {
+    if (!this.isMoving || this.path.length === 0) return;
+
+    if (this.targetIndex >= this.path.length) {
+      this.isMoving = false;
+      return;
+    }
+
+    const targetGrid = this.path[this.targetIndex];
+    const targetPixelX = targetGrid.x * CELL_SIZE + CELL_SIZE / 2;
+    const targetPixelY = targetGrid.y * CELL_SIZE + CELL_SIZE / 2;
+
+    const dx = targetPixelX - this.x;
+    const dy = targetPixelY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const targetAngle = Math.atan2(dy, dx);
+
+    let angleDiff = targetAngle - this.angle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+    this.angle += angleDiff * 0.05;
+
+    if (dist < this.speed) {
+      this.x = targetPixelX;
+      this.y = targetPixelY;
+      this.targetIndex++;
+    } else {
+      this.x += Math.cos(targetAngle) * this.speed;
+      this.y += Math.sin(targetAngle) * this.speed;
+    }
+  }
+
+  drawNew(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 10;
+
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    const x = -20, y = -12, w = 40, h = 24, r = 5;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.fill();
+
+    ctx.fillStyle = '#a5f3fc';
+    ctx.shadowBlur = 0;
+    ctx.fillRect(4, -10, 10, 20);
+    ctx.fillRect(-12, -10, 8, 20);
+
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(18, -8, 3, 0, Math.PI * 2);
+    ctx.arc(18, 8, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.rect(-20, -10, 2, 6);
+    ctx.rect(-20, 4, 2, 6);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
 
 Page({
   data: {
-    loading: true,
-    isNavigating: false,
-    showDestPicker: false,
-    speed: 0,
-    bearing: 0,
-    joystickX: 50,
-    joystickY: 50,
-    destinations: [
-      { id: 'node-001', name: '入口1', desc: '主入口' },
-      { id: 'node-018', name: '出口', desc: '停车场出口' },
-      { id: 'node-041', name: '电梯', desc: '前往其他楼层' },
-      { id: 'node-020', name: 'B区车位', desc: '停车区B' },
-      { id: 'node-006', name: 'A区车位', desc: '停车区A' }
-    ]
-  },
-
-  // 状态变量
-  canvas: null,
-  ctx: null,
-  renderEngine: null,
-  mapData: null,
-  navigationGraph: null,
-  gameLoop: null,
-  
-  // 车辆状态
-  vehicleState: {
-    lng: 113.0,
-    lat: 23.0,
-    bearing: 0,
-    speed: 0
-  },
-
-  // 摇杆状态
-  joystickState: {
-    dx: 0,
-    dy: 0
-  },
-
-  // 路径
-  currentPath: [],
-  destinationNodeId: null,
-
-  /**
-   * 生命周期 - 页面加载
-   */
-  onLoad() {
-    wx.showLoading({ title: '加载中...', mask: true })
-    this.initCanvas()
-    this.loadMapData()
-  },
-
-  /**
-   * 生命周期 - 页面显示
-   */
-  onShow() {
-    if (this.renderEngine && !this.gameLoop) {
-      this.startGameLoop()
+    statusMsg: '正在生成地图...',
+    btnText: '开始导航',
+    showRecenter: false,
+    dpr: 1,
+    venueTitle: '泊车汪',
+    startPointLabel: '入口1',
+    destinationLabel: '请选择车位',
+    routeDistanceText: '0 米',
+    currentFloor: 'B2',
+    floorOptions: ['1F', 'B1', 'B2'],
+    // 算法相关
+    currentAlgorithm: 'dynamic-astar',
+    algorithmName: '动态加权A*',
+    showStats: true,
+    showComparison: false,
+    comparisonResults: [],
+    currentStats: {
+      pathLength: 0,
+      nodesExpanded: 0,
+      nodesVisited: 0,
+      computeTime: 0,
+      computeTimeFormatted: '0.00'
     }
   },
 
-  /**
-   * 生命周期 - 页面隐藏
-   */
-  onHide() {
-    this.stopGameLoop()
+  onLoad(options) {
+    this.options = options;
+    this.windowInfo = wx.getWindowInfo();
+    // 初始化算法管理器
+    pathfindingManager = new PathfindingManager();
+    pathfindingManager.setCurrent('dynamic-astar');
   },
 
-  /**
-   * 生命周期 - 页面卸载
-   */
-  onUnload() {
-    this.stopGameLoop()
-  },
-
-  /**
-   * 初始化 Canvas
-   */
-  initCanvas() {
-    const query = wx.createSelectorQuery()
-    query.select('#mapCanvas')
+  onReady() {
+    const query = wx.createSelectorQuery();
+    query.select('#parkingCanvas')
       .fields({ node: true, size: true })
       .exec((res) => {
-        if (!res[0]) return
-        
-        const canvas = res[0].node
-        const ctx = canvas.getContext('2d')
-        
-        // 使用新的 API 替代已弃用的 getSystemInfoSync
-        const deviceInfo = wx.getDeviceInfo()
-        const dpr = deviceInfo.pixelRatio || 2
-        canvas.width = res[0].width * dpr
-        canvas.height = res[0].height * dpr
-        ctx.scale(dpr, dpr)
-        
-        this.canvas = canvas
-        this.ctx = ctx
-        this.renderEngine = new RenderEngine(canvas, ctx)
-        
-        console.log('Canvas initialized:', canvas.width, canvas.height)
-      })
+        const canvas = res[0].node;
+        const ctx = canvas.getContext('2d');
+
+        const dpr = wx.getSystemInfoSync().pixelRatio;
+        canvas.width = res[0].width * dpr;
+        canvas.height = res[0].height * dpr;
+        ctx.scale(dpr, dpr);
+
+        this.canvas = canvas;
+        this.ctx = ctx;
+        this.setData({ dpr });
+
+        this.initGame();
+        this.animate();
+      });
   },
 
-  /**
-   * 加载地图数据
-   */
-  async loadMapData() {
-    try {
-      console.log('[导航] 开始加载地图数据...')
-      
-      // 加载 GeoJSON（已转换为 JS 模块）
-      const mapData = require('../../assets/map_elements.js')
-      this.mapData = mapData
-      console.log('[导航] GeoJSON 加载成功, 特征数:', mapData.features.length)
-      
-      // 加载导航图（已转换为 JS 模块）
-      const navGraph = require('../../assets/navigation_graph.js')
-      this.navigationGraph = navGraph
-      console.log('[导航] 导航图加载成功, 节点数:', navGraph.nodes.length)
-      
-      // 等待 Canvas 初始化
-      console.log('[导航] 等待 Canvas 初始化...')
-      await this.waitForCanvas()
-      console.log('[导航] Canvas 初始化完成')
-      
-      if (!this.renderEngine) {
-        throw new Error('渲染引擎未初始化')
-      }
-      
-      // 加载到渲染引擎
-      this.renderEngine.loadMapData(mapData)
-      console.log('[导航] 地图数据已加载到渲染引擎')
-      
-      // 设置初始车辆位置（入口处）
-      const entranceNode = navGraph.nodes.find(n => n.name === '入口1')
-      if (entranceNode) {
-        this.vehicleState.lng = entranceNode.coordinates[0]
-        this.vehicleState.lat = entranceNode.coordinates[1]
-        const worldPos = this.renderEngine.geoToWorld(this.vehicleState.lng, this.vehicleState.lat)
-        this.renderEngine.setCamera(worldPos.x, worldPos.y)
-        console.log('[导航] 初始位置设置:', { lng: this.vehicleState.lng, lat: this.vehicleState.lat })
-      } else {
-        // 使用默认位置
-        this.vehicleState.lng = 113.0
-        this.vehicleState.lat = 23.0
-        const worldPos = this.renderEngine.geoToWorld(this.vehicleState.lng, this.vehicleState.lat)
-        this.renderEngine.setCamera(worldPos.x, worldPos.y)
-        console.log('[导航] 使用默认位置')
-      }
-      
-      // 首次渲染
-      console.log('[导航] 开始首次渲染...')
-      this.render()
-      console.log('[导航] 首次渲染完成')
-      
-      // 启动游戏循环
-      this.startGameLoop()
-      console.log('[导航] 游戏循环已启动')
-      
-      this.setData({ loading: false })
-      wx.hideLoading()
-      
-      wx.showToast({
-        title: '地图加载成功',
-        icon: 'success',
-        duration: 2000
-      })
-      
-    } catch (error) {
-      console.error('[导航] 加载地图数据失败:', error)
-      console.error('[导航] 错误堆栈:', error.stack)
-      wx.hideLoading()
-      this.setData({ loading: false })
-      
-      wx.showModal({
-        title: '加载失败',
-        content: `地图数据加载失败: ${error.message}`,
-        showCancel: false
-      })
+  onUnload() {
+    if (this.animationId) {
+      this.canvas.cancelAnimationFrame(this.animationId);
     }
   },
 
-  /**
-   * 等待 Canvas 初始化完成
-   */
-  waitForCanvas() {
-    return new Promise((resolve, reject) => {
-      let attempts = 0
-      const maxAttempts = 50 // 最多等待 5 秒
-      
-      const check = () => {
-        attempts++
-        
-        if (this.canvas && this.ctx && this.renderEngine) {
-          console.log('[导航] Canvas 准备就绪')
-          resolve()
-        } else if (attempts >= maxAttempts) {
-          console.error('[导航] Canvas 初始化超时')
-          reject(new Error('Canvas 初始化超时'))
-        } else {
-          setTimeout(check, 100)
+  // === 算法选择 ===
+  selectAlgorithm(e) {
+    const algo = e.currentTarget.dataset.algo;
+    if (pathfindingManager.setCurrent(algo)) {
+      const algorithms = pathfindingManager.list();
+      const selected = algorithms.find(a => a.id === algo);
+      this.setData({
+        currentAlgorithm: algo,
+        algorithmName: selected ? selected.name : algo
+      });
+
+      // 重新计算路径
+      if (currentTarget && !car.isMoving) {
+        this.calculateAndStartPath();
+      }
+
+      wx.showToast({
+        title: `已切换: ${selected ? selected.name : algo}`,
+        icon: 'none',
+        duration: 1500
+      });
+    }
+  },
+
+  // === 算法对比 ===
+  showAlgorithmComparison() {
+    this.setData({ showComparison: true });
+    this.runComparison();
+  },
+
+  hideComparison() {
+    this.setData({ showComparison: false });
+  },
+
+  preventClose() {
+    // 阻止点击内容区域关闭弹窗
+  },
+
+  runComparison() {
+    if (!currentTarget || !mapGrid.length) {
+      wx.showToast({ title: '请先选择目标车位', icon: 'none' });
+      return;
+    }
+
+    const startGrid = {
+      x: Math.floor(car.x / CELL_SIZE),
+      y: Math.floor(car.y / CELL_SIZE)
+    };
+
+    // 运行所有算法进行对比
+    const results = pathfindingManager.compare(mapGrid, startGrid, currentTarget);
+
+    // 标记最佳结果
+    if (results.length > 0) {
+      const bestLength = results[0].pathLength;
+      results.forEach(r => {
+        r.best = r.pathLength === bestLength && r.pathLength > 0;
+      });
+    }
+
+    this.setData({ comparisonResults: results });
+  },
+
+  // === 地图生成 ===
+  generateGrid() {
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = Infinity;
+    maxLat = -Infinity;
+
+    mapData.features.forEach(f => {
+      if (f.properties.type === 'parking_spot') {
+        const coords = f.geometry.coordinates[0];
+        coords.forEach(c => {
+          if (c[0] < minLng) minLng = c[0];
+          if (c[0] > maxLng) maxLng = c[0];
+          if (c[1] < minLat) minLat = c[1];
+          if (c[1] > maxLat) maxLat = c[1];
+        });
+      }
+    });
+
+    navGraph.nodes.forEach(n => {
+      if (n.coordinates[0] < minLng) minLng = n.coordinates[0];
+      if (n.coordinates[0] > maxLng) maxLng = n.coordinates[0];
+      if (n.coordinates[1] < minLat) minLat = n.coordinates[1];
+      if (n.coordinates[1] > maxLat) maxLat = n.coordinates[1];
+    });
+
+    const padding = 0.0002;
+    minLng -= padding; maxLng += padding;
+    minLat -= padding; maxLat += padding;
+
+    const GRID_W = 60;
+    const step = (maxLng - minLng) / GRID_W;
+    const GRID_H = Math.ceil((maxLat - minLat) / step);
+
+    const grid = [];
+    for (let y = 0; y < GRID_H; y++) {
+      let row = [];
+      for (let x = 0; x < GRID_W; x++) {
+        row.push(WALL);
+      }
+      grid.push(row);
+    }
+
+    const toGrid = (lng, lat) => {
+      return {
+        x: Math.floor((lng - minLng) / step),
+        y: Math.floor((maxLat - lat) / step)
+      };
+    };
+
+    spotMap = {};
+    gridToSpaceMap = {};
+
+    let allSpots = [];
+    mapData.features.forEach(f => {
+      if (f.properties.type === 'parking_spot') {
+        let cx = 0, cy = 0;
+        const coords = f.geometry.coordinates[0];
+        coords.forEach(c => { cx += c[0]; cy += c[1]; });
+        cx /= coords.length;
+        cy /= coords.length;
+        allSpots.push({ feature: f, cx, cy });
+      }
+    });
+
+    const EPSILON = 0.00005;
+    allSpots.sort((a, b) => {
+      if (Math.abs(a.cy - b.cy) > EPSILON) {
+        return b.cy - a.cy;
+      }
+      return a.cx - b.cx;
+    });
+
+    allSpots.forEach((item, index) => {
+      const p = toGrid(item.cx, item.cy);
+      if (p.x >= 0 && p.x < GRID_W && p.y >= 0 && p.y < GRID_H) {
+        grid[p.y][p.x] = SPOT;
+        const numId = (index + 1).toString().padStart(3, '0');
+        spotMap[numId] = { x: p.x, y: p.y, fullId: item.feature.properties.id, numId: index + 1 };
+        gridToSpaceMap[`${p.x},${p.y}`] = numId;
+      }
+    });
+
+    navGraph.edges.forEach(edge => {
+      const fromNode = navGraph.nodes.find(n => n.id === edge.from);
+      const toNode = navGraph.nodes.find(n => n.id === edge.to);
+
+      if (fromNode && toNode) {
+        const p1 = toGrid(fromNode.coordinates[0], fromNode.coordinates[1]);
+        const p2 = toGrid(toNode.coordinates[0], toNode.coordinates[1]);
+
+        let x0 = p1.x, y0 = p1.y;
+        let x1 = p2.x, y1 = p2.y;
+
+        let dx = Math.abs(x1 - x0);
+        let dy = Math.abs(y1 - y0);
+        let sx = (x0 < x1) ? 1 : -1;
+        let sy = (y0 < y1) ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+          if (y0 >= 0 && y0 < GRID_H && x0 >= 0 && x0 < GRID_W) {
+            if (grid[y0][x0] !== SPOT) {
+              grid[y0][x0] = ROAD;
+            }
+
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                let ny = y0 + dy, nx = x0 + dx;
+                if (ny >= 0 && ny < GRID_H && nx >= 0 && nx < GRID_W) {
+                  if (grid[ny][nx] !== SPOT) grid[ny][nx] = ROAD;
+                }
+              }
+            }
+          }
+
+          if ((x0 === x1) && (y0 === y1)) break;
+          let e2 = 2 * err;
+          if (e2 > -dy) { err -= dy; x0 += sx; }
+          if (e2 < dx) { err += dx; y0 += sy; }
         }
       }
-      
-      check()
-    })
-  },
+    });
 
-  /**
-   * 启动游戏循环
-   */
-  startGameLoop() {
-    if (this.gameLoop) return
-    
-    this.gameLoop = setInterval(() => {
-      this.updateVehicle()
-      this.render()
-    }, 1000 / 30)  // 30 FPS
-    
-    console.log('Game loop started')
-  },
-
-  /**
-   * 停止游戏循环
-   */
-  stopGameLoop() {
-    if (this.gameLoop) {
-      clearInterval(this.gameLoop)
-      this.gameLoop = null
-      console.log('Game loop stopped')
-    }
-  },
-
-  /**
-   * 更新车辆状态
-   */
-  updateVehicle() {
-    const { dx, dy } = this.joystickState
-    
-    if (dx === 0 && dy === 0) {
-      this.vehicleState.speed = 0
-      this.setData({ speed: 0 })
-      return
-    }
-    
-    // 速度和方向
-    const speed = Math.sqrt(dx * dx + dy * dy) * 0.00001  // 调整速度系数
-    const bearing = Math.atan2(dx, -dy) * (180 / Math.PI)
-    
-    this.vehicleState.speed = speed
-    this.vehicleState.bearing = bearing
-    
-    // 更新位置
-    this.vehicleState.lng += dx * 0.00001
-    this.vehicleState.lat += dy * 0.00001
-    
-    // 更新相机
-    const worldPos = this.renderEngine.geoToWorld(this.vehicleState.lng, this.vehicleState.lat)
-    this.renderEngine.setCamera(worldPos.x, worldPos.y, -bearing)
-    
-    // 更新显示
-    this.setData({
-      speed: speed * 10000,  // 转换为更友好的数值
-      bearing: (bearing + 360) % 360
-    })
-  },
-
-  /**
-   * 渲染一帧
-   */
-  render() {
-    if (!this.renderEngine) return
-    
-    this.renderEngine.render(
-      this.vehicleState,
-      this.currentPath
-    )
-  },
-
-  /**
-   * 摇杆变化事件
-   */
-  onJoystickChange(e) {
-    const { x, y } = e.detail
-    
-    // 计算相对中心的偏移 (-1 到 1)
-    const dx = (x - 50) / 50
-    const dy = (y - 50) / 50
-    
-    this.joystickState = { dx, dy }
-  },
-
-  /**
-   * 摇杆释放事件
-   */
-  onJoystickRelease() {
-    this.joystickState = { dx: 0, dy: 0 }
-    this.setData({
-      joystickX: 50,
-      joystickY: 50
-    })
-  },
-
-  /**
-   * 开始/停止导航
-   */
-  toggleNavigation() {
-    if (this.data.isNavigating) {
-      // 停止导航
-      this.currentPath = []
-      this.destinationNodeId = null
-      this.setData({ isNavigating: false })
-      wx.showToast({ title: '导航已停止', icon: 'none' })
+    const entrance = navGraph.nodes.find(n => n.name === '入口1');
+    if (entrance) {
+      carStartGrid = toGrid(entrance.coordinates[0], entrance.coordinates[1]);
     } else {
-      // 开始导航 - 打开目的地选择器
-      this.setData({ showDestPicker: true })
+      carStartGrid = { x: 2, y: GRID_H - 2 };
     }
+
+    if (grid[carStartGrid.y][carStartGrid.x] === WALL) {
+      grid[carStartGrid.y][carStartGrid.x] = ROAD;
+    }
+
+    return grid;
   },
 
-  /**
-   * 选择目的地
-   */
-  selectDestination() {
-    this.setData({ showDestPicker: true })
-  },
+  initGame() {
+    mapGrid = this.generateGrid();
+    car = new Car(carStartGrid.x, carStartGrid.y);
 
-  /**
-   * 关闭目的地选择器
-   */
-  closePicker() {
-    this.setData({ showDestPicker: false })
-  },
+    cameraPos = { x: car.x, y: car.y };
+    cameraAngle = car.angle;
+    cameraHeading = car.angle;
+    arrivalHandled = false;
 
-  /**
-   * 选择一个目的地
-   */
-  selectDest(e) {
-    const destId = e.currentTarget.dataset.id
-    const dest = this.data.destinations.find(d => d.id === destId)
-    
-    if (!dest) return
-    
-    this.setData({ 
-      showDestPicker: false,
-      isNavigating: true
-    })
-    
-    // 计算路径
-    this.calculateRoute(destId, dest.name)
-  },
+    this.fetchParkingStatus();
 
-  /**
-   * 计算路径
-   */
-  calculateRoute(destNodeId, destName) {
-    wx.showLoading({ title: '规划路径中...' })
-    
-    try {
-      // 找到当前位置最近的节点
-      const currentNodeId = findNearestNode(
-        this.navigationGraph,
-        [this.vehicleState.lng, this.vehicleState.lat]
-      )
-      
-      // 使用 A* 算法计算路径
-      const path = astar(this.navigationGraph, currentNodeId, destNodeId)
-      
-      if (path && path.length > 0) {
-        this.currentPath = path
-        this.destinationNodeId = destNodeId
-        
-        wx.hideLoading()
-        wx.showToast({
-          title: `导航至${destName}`,
-          icon: 'success'
-        })
+    if (this.options && this.options.spaceId) {
+      const target = spotMap[this.options.spaceId];
+      if (target) {
+        this.setTarget(target.x, target.y);
       } else {
-        wx.hideLoading()
-        wx.showToast({
-          title: '无法找到路径',
-          icon: 'error'
-        })
-        this.setData({ isNavigating: false })
+        this.findRandomTarget();
       }
-      
-    } catch (error) {
-      console.error('路径规划失败:', error)
-      wx.hideLoading()
-      wx.showToast({
-        title: '路径规划失败',
-        icon: 'error'
-      })
-      this.setData({ isNavigating: false })
+    } else {
+      this.findRandomTarget();
     }
   },
 
-  /**
-   * 重置相机
-   */
+  findRandomTarget() {
+    const keys = Object.keys(spotMap);
+    if (keys.length > 0) {
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      const t = spotMap[randomKey];
+      this.setTarget(t.x, t.y);
+    }
+  },
+
+  setTarget(x, y) {
+    if (currentTarget) {
+      if (mapGrid[currentTarget.y][currentTarget.x] === TARGET) {
+        mapGrid[currentTarget.y][currentTarget.x] = SPOT;
+      }
+    }
+
+    currentTarget = { x, y };
+    mapGrid[y][x] = TARGET;
+
+    const id = gridToSpaceMap[`${x},${y}`];
+    this.setData({
+      statusMsg: `目标: ${id || '未知'}`,
+      btnText: "开始导航",
+      destinationLabel: id ? `车位 ${id}` : '未选择车位'
+    });
+
+    this.calculateAndStartPath();
+  },
+
+  fetchParkingStatus() {
+    const total = Object.keys(spotMap).length;
+    const occupiedCount = 7;
+
+    let occupied = 0;
+    Object.keys(spotMap).forEach(key => {
+      const spot = spotMap[key];
+      if (occupied < occupiedCount && Math.random() < 0.05) {
+        mapGrid[spot.y][spot.x] = OCCUPIED;
+        occupied++;
+      } else {
+        if (mapGrid[spot.y][spot.x] !== TARGET) {
+          mapGrid[spot.y][spot.x] = SPOT;
+        }
+      }
+    });
+
+    this.setData({
+      statusMsg: `数据同步完成: 空闲 ${total - occupied}, 占用 ${occupied}`
+    });
+  },
+
+  calculateAndStartPath() {
+    if (!currentTarget) return;
+
+    const startGrid = {
+      x: Math.floor(car.x / CELL_SIZE),
+      y: Math.floor(car.y / CELL_SIZE)
+    };
+
+    if (startGrid.x < 0) startGrid.x = 0;
+    if (startGrid.y < 0) startGrid.y = 0;
+
+    // 使用算法管理器执行寻路
+    const result = pathfindingManager.findPath(mapGrid, startGrid, currentTarget);
+    const path = result.path;
+    const stats = result.stats;
+
+    // 更新统计信息
+    this.setData({
+      currentStats: {
+        pathLength: path.length,
+        nodesExpanded: stats.nodesExpanded || 0,
+        nodesVisited: stats.nodesVisited || 0,
+        computeTime: stats.computeTime || 0,
+        computeTimeFormatted: ((stats.computeTime || 0)).toFixed(2)
+      },
+      routeDistanceText: path.length > 0 ? `${(path.length * 3.2).toFixed(2)} 米` : '0 米'
+    });
+
+    if (path.length > 0) {
+      currentPath = path;
+      car.setPath(path);
+      arrivalHandled = false;
+      this.setData({ btnText: "行驶中..." });
+      this.resetCamera();
+    } else {
+      this.setData({ btnText: "无法到达" });
+    }
+  },
+
+  startNavigation() {
+    if (car.isMoving && currentPath.length > 0) return;
+    this.calculateAndStartPath();
+  },
+
+  resetSimulation() {
+    car = new Car(carStartGrid.x, carStartGrid.y);
+    currentPath = [];
+    viewMode = 'FOLLOW';
+    manualViewOffset = 0;
+    cameraAngle = 0;
+    cameraHeading = 0;
+    arrivalHandled = false;
+    this.setData({
+      showRecenter: false,
+      btnText: "开始导航",
+      currentStats: {
+        pathLength: 0,
+        nodesExpanded: 0,
+        nodesVisited: 0,
+        computeTime: 0,
+        computeTimeFormatted: '0.00'
+      },
+      routeDistanceText: '0 米'
+    });
+    this.resetCamera();
+  },
+
   resetCamera() {
-    if (!this.renderEngine) return
-    
-    const worldPos = this.renderEngine.geoToWorld(this.vehicleState.lng, this.vehicleState.lat)
-    this.renderEngine.setCamera(worldPos.x, worldPos.y, 0)
-    this.vehicleState.bearing = 0
-    
-    this.setData({ bearing: 0 })
-    
-    wx.showToast({
-      title: '视角已重置',
-      icon: 'success'
-    })
+    viewMode = 'FOLLOW';
+    manualViewOffset = 0;
+    cameraAngle = 0;
+    cameraHeading = car ? car.angle : 0;
+    this.setData({ showRecenter: false });
   },
 
-  /**
-   * Canvas 触摸事件（用于缩放和拖动）
-   */
-  onCanvasTouchStart(e) {
-    // TODO: 实现双指缩放
+  normalizeAngle(angle) {
+    let next = angle;
+    while (next > Math.PI) next -= Math.PI * 2;
+    while (next < -Math.PI) next += Math.PI * 2;
+    return next;
   },
 
-  onCanvasTouchMove(e) {
-    // TODO: 实现拖动地图
+  rpxToPx(rpx) {
+    const windowWidth = (this.windowInfo && this.windowInfo.windowWidth) || 375;
+    return rpx * windowWidth / 750;
   },
 
-  onCanvasTouchEnd(e) {
-    // TODO: 结束触摸
+  getCanvasViewport(logicWidth, logicHeight) {
+    const top = this.rpxToPx(HUD_TOP_CLIP_RPX);
+    const bottomInset = this.rpxToPx(HUD_BOTTOM_CLIP_RPX);
+    const bottom = Math.max(top + 40, logicHeight - bottomInset);
+    return {
+      top,
+      bottom,
+      height: Math.max(40, bottom - top)
+    };
+  },
+
+  clampCameraToMap(anchorX, anchorY, logicWidth, viewport) {
+    if (!mapGrid.length || !mapGrid[0] || !mapGrid[0].length) return;
+
+    const mapWidth = mapGrid[0].length * CELL_SIZE;
+    const mapHeight = mapGrid.length * CELL_SIZE;
+
+    // After a -90deg world rotation, screen X corresponds to world Y,
+    // and screen Y corresponds to world X. Clamp camera so the clipped
+    // viewport always remains inside the map.
+    const minCameraX = viewport.bottom - anchorY;
+    const maxCameraX = mapWidth - (anchorY - viewport.top);
+    const minCameraY = anchorX;
+    const maxCameraY = mapHeight - (logicWidth - anchorX);
+
+    cameraPos.x = Math.min(Math.max(cameraPos.x, minCameraX), Math.max(minCameraX, maxCameraX));
+    cameraPos.y = Math.min(Math.max(cameraPos.y, minCameraY), Math.max(minCameraY, maxCameraY));
+  },
+
+  // === 动画循环 ===
+  animate() {
+    if (!this.canvas) return;
+
+    car.update();
+
+    if (!car.isMoving && this.data.btnText === '行驶中...' && !arrivalHandled) {
+      arrivalHandled = true;
+      this.setData({ btnText: '导航结束', statusMsg: '已到达目的地' });
+      this.handleArrival();
+    }
+
+    const ctx = this.ctx;
+    const canvas = this.canvas;
+    const logicWidth = canvas.width / this.data.dpr;
+    const logicHeight = canvas.height / this.data.dpr;
+    const viewport = this.getCanvasViewport(logicWidth, logicHeight);
+    const anchorX = logicWidth / 2 + CAMERA_HORIZONTAL_OFFSET;
+    const anchorY = viewport.top + viewport.height * CAMERA_LOWER_THIRD_RATIO;
+    ctx.clearRect(0, 0, logicWidth, logicHeight);
+    manualViewOffset = 0;
+
+    const headingDelta = this.normalizeAngle(car.angle - cameraHeading);
+    cameraHeading += headingDelta * CAMERA_HEADING_LERP;
+    cameraAngle = cameraHeading;
+
+    const parked = !car.isMoving && this.data.btnText === '导航结束';
+    const followDistance = parked ? CAMERA_PARK_DISTANCE : CAMERA_FOLLOW_DISTANCE;
+    const followLerp = parked ? CAMERA_PARK_LERP : CAMERA_FOLLOW_LERP;
+    const followTargetX = car.x + Math.cos(cameraAngle) * followDistance;
+    const followTargetY = car.y + Math.sin(cameraAngle) * followDistance;
+    cameraPos.x += (followTargetX - cameraPos.x) * followLerp;
+    cameraPos.y += (followTargetY - cameraPos.y) * followLerp;
+    this.clampCameraToMap(anchorX, anchorY, logicWidth, viewport);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, viewport.top, logicWidth, viewport.height);
+    ctx.clip();
+    ctx.translate(anchorX, anchorY);
+    ctx.rotate(WORLD_ROTATION);
+    ctx.translate(-cameraPos.x, -cameraPos.y);
+
+    if (!this.data.showComparison) {
+      this.drawMap(ctx);
+      this.drawPath(ctx);
+      car.drawNew(ctx);
+    }
+
+    ctx.restore();
+
+    this.animationId = this.canvas.requestAnimationFrame(() => this.animate());
+  },
+
+  drawMap(ctx) {
+    for (let y = 0; y < mapGrid.length; y++) {
+      for (let x = 0; x < mapGrid[y].length; x++) {
+        const type = mapGrid[y][x];
+        const px = x * CELL_SIZE;
+        const py = y * CELL_SIZE;
+
+        ctx.fillStyle = '#e5e7eb';
+        ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+
+        if (type === WALL) {
+          ctx.fillStyle = '#9ca3af';
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          ctx.fillStyle = '#6b7280';
+          ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+        } else if (type === OCCUPIED) {
+          ctx.strokeStyle = '#f87171';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+
+          ctx.fillStyle = '#fecaca';
+          ctx.fillRect(px + 8, py + 12, CELL_SIZE - 16, CELL_SIZE - 24);
+
+          const id = gridToSpaceMap[`${x},${y}`];
+          if (id) {
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(id, px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+          }
+        } else if (type === SPOT || type === TARGET) {
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.rect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+          ctx.stroke();
+
+          const id = gridToSpaceMap[`${x},${y}`];
+          if (id) {
+            ctx.save();
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(id, px + CELL_SIZE / 2, py + CELL_SIZE / 2 + 4);
+            ctx.restore();
+          }
+
+          if (type === TARGET) {
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.5)';
+            ctx.fillRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+            ctx.fillStyle = '#059669';
+            ctx.beginPath();
+            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2 - 12, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(px + CELL_SIZE / 2 - 1, py + CELL_SIZE / 2 - 12, 2, 16);
+          }
+        }
+      }
+    }
+  },
+
+  drawPath(ctx) {
+    if (currentPath.length < 2) return;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([10, 10]);
+
+    const offset = (Date.now() / 50) % 20;
+    ctx.lineDashOffset = -offset;
+
+    ctx.moveTo(car.x, car.y);
+    let startIndex = car.targetIndex;
+
+    if (startIndex < currentPath.length) {
+      const next = currentPath[startIndex];
+      ctx.lineTo(next.x * CELL_SIZE + CELL_SIZE / 2, next.y * CELL_SIZE + CELL_SIZE / 2);
+
+      for (let i = startIndex + 1; i < currentPath.length; i++) {
+        const p = currentPath[i];
+        ctx.lineTo(p.x * CELL_SIZE + CELL_SIZE / 2, p.y * CELL_SIZE + CELL_SIZE / 2);
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  },
+
+  handleArrival() {
+    if (!currentTarget) return;
+
+    const tx = currentTarget.x;
+    const ty = currentTarget.y;
+    mapGrid[ty][tx] = OCCUPIED;
+
+    const id = gridToSpaceMap[`${tx},${ty}`];
+
+    const app = getApp();
+    if (app && app.globalData && app.globalData.baseUrl) {
+      wx.request({
+        url: `${app.globalData.baseUrl}/spaces/update`,
+        method: 'POST',
+        data: { spaceId: id, status: '占用' },
+        success: () => wx.showToast({ title: '已落锁', icon: 'success' })
+      });
+    } else {
+      wx.showToast({ title: '已到达(模拟)', icon: 'success' });
+    }
+  },
+
+  // === 触摸事件 ===
+  onTouchStart(e) {
+    const touch = e.touches[0];
+    isDragging = true;
+    lastMouse = { x: touch.x, y: touch.y };
+    touchSession = {
+      start: { x: touch.x, y: touch.y },
+      last: { x: touch.x, y: touch.y },
+      moved: false
+    };
+  },
+
+  onTouchMove(e) {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const dx = touch.x - lastMouse.x;
+    const dy = touch.y - lastMouse.y;
+    lastMouse = { x: touch.x, y: touch.y };
+
+    if (touchSession) {
+      touchSession.last = { x: touch.x, y: touch.y };
+      if (Math.abs(touch.x - touchSession.start.x) > 8 || Math.abs(touch.y - touchSession.start.y) > 8) {
+        touchSession.moved = true;
+      }
+    }
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      // Disable manual camera dragging: the map stays fixed and only auto-follow is used.
+      return;
+    }
+  },
+
+  onTouchEnd() {
+    if (touchSession && !touchSession.moved) {
+      this.onCanvasTap({
+        detail: {
+          x: touchSession.last.x,
+          y: touchSession.last.y
+        }
+      });
+    }
+    isDragging = false;
+    touchSession = null;
+  },
+
+  selectFloor(e) {
+    const floor = e.currentTarget.dataset.floor;
+    if (!floor) return;
+    this.setData({ currentFloor: floor });
+  },
+
+  exitSelection() {
+    this.resetSimulation();
+  },
+
+  onCanvasTap(e) {
+    const touch = e.detail;
+    const logicWidth = this.canvas.width / this.data.dpr;
+    const logicHeight = this.canvas.height / this.data.dpr;
+    const viewport = this.getCanvasViewport(logicWidth, logicHeight);
+    const anchorX = logicWidth / 2 + CAMERA_HORIZONTAL_OFFSET;
+    const anchorY = viewport.top + viewport.height * CAMERA_LOWER_THIRD_RATIO;
+
+    if (touch.y < viewport.top || touch.y > viewport.bottom) {
+      return;
+    }
+
+    const offsetX = touch.x - anchorX;
+    const offsetY = touch.y - anchorY;
+    const invRotation = -WORLD_ROTATION;
+    const worldX = offsetX * Math.cos(invRotation) - offsetY * Math.sin(invRotation) + cameraPos.x;
+    const worldY = offsetX * Math.sin(invRotation) + offsetY * Math.cos(invRotation) + cameraPos.y;
+
+    const gridX = Math.floor(worldX / CELL_SIZE);
+    const gridY = Math.floor(worldY / CELL_SIZE);
+
+    if (gridY >= 0 && gridY < mapGrid.length && gridX >= 0 && gridX < mapGrid[0].length) {
+      const type = mapGrid[gridY][gridX];
+
+      if (type === SPOT || type === TARGET) {
+        this.setTarget(gridX, gridY);
+      } else if (type === OCCUPIED) {
+        const id = gridToSpaceMap[`${gridX},${gridY}`];
+        this.setData({
+          statusMsg: `⚠️ 车位 ${id || ''} 已被占用`
+        });
+      }
+    }
   }
-})
+});

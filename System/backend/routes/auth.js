@@ -9,6 +9,10 @@ const router = express.Router()
 // 登录路由
 router.post('/login', async (req, res) => {
   try {
+    // 检查请求体
+    if (!req || !req.body) {
+      return res.status(400).json({ success: false, message: '请求无效' })
+    }
     const { username, password } = req.body
 
     // 验证输入
@@ -83,7 +87,7 @@ router.post('/login', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error(error)
+    console.error('LOGIN_ERR:', error && error.stack ? error.stack : error)
     res.status(500).json({
       success: false,
       message: error && error.message ? error.message : '服务器错误'

@@ -1,87 +1,89 @@
 <!--pages/navigation/navigation.wxml-->
-<view class="container">
-  <!-- 2.5D 地图画布 -->
-  <canvas 
-    type="2d" 
-    id="mapCanvas" 
-    class="map-canvas"
-    bindtouchstart="onCanvasTouchStart"
-    bindtouchmove="onCanvasTouchMove"
-    bindtouchend="onCanvasTouchEnd"
-  ></canvas>
+<view class="page-container">
+  <view class="canvas-layer {{showComparison ? 'modal-open' : ''}}">
+    <canvas
+      type="2d"
+      id="parkingCanvas"
+      class="game-canvas"
+      bindtap="onCanvasTap"
+      bindtouchstart="onTouchStart"
+      bindtouchmove="onTouchMove"
+      bindtouchend="onTouchEnd"
+      disable-scroll="true"
+    ></canvas>
+  </view>
 
-  <!-- 控制面板 -->
-  <view class="control-panel">
-    <!-- 摇杆容器 -->
-    <view class="joystick-wrapper">
-      <movable-area class="joystick-area">
-        <movable-view 
-          class="joystick-handle" 
-          direction="all"
-          bindchange="onJoystickChange"
-          bindtouchend="onJoystickRelease"
-          x="{{joystickX}}"
-          y="{{joystickY}}"
-        >
-          <view class="joystick-inner"></view>
-        </movable-view>
-      </movable-area>
-      <view class="joystick-base"></view>
+  <view class="hud-top-mask"></view>
+  <view class="top-nav">
+    <text class="nav-title">{{venueTitle}}</text>
+  </view>
+
+  <view class="route-card">
+    <view class="route-row">
+      <view class="dot start"></view>
+      <text class="route-label">{{startPointLabel}}</text>
     </view>
-
-    <!-- 信息显示 -->
-    <view class="info-panel">
-      <text class="info-text">速度: {{speed.toFixed(1)}} m/s</text>
-      <text class="info-text">方向: {{bearing.toFixed(0)}}°</text>
+    <view class="route-row">
+      <view class="dot end"></view>
+      <text class="route-label">{{destinationLabel}}</text>
     </view>
   </view>
 
-  <!-- 导航控制按钮 -->
-  <view class="nav-buttons">
-    <button 
-      class="nav-btn {{isNavigating ? 'active' : ''}}" 
-      bindtap="toggleNavigation"
-    >
-      {{isNavigating ? '停止导航' : '开始导航'}}
-    </button>
-    
-    <button 
-      class="nav-btn secondary" 
-      bindtap="selectDestination"
-    >
-      选择目的地
-    </button>
-
-    <button 
-      class="nav-btn secondary" 
-      bindtap="resetCamera"
-    >
-      重置视角
-    </button>
+  <view class="mode-card">
+    <view class="mode-back" bindtap="exitSelection">退出选择</view>
+    <view class="mode-options">
+      <view
+        class="mode-pill {{currentAlgorithm === 'astar' ? 'active' : ''}}"
+        bindtap="selectAlgorithm"
+        data-algo="astar"
+      >标准A*</view>
+      <view
+        class="mode-pill {{currentAlgorithm === 'dynamic-astar' ? 'active' : ''}}"
+        bindtap="selectAlgorithm"
+        data-algo="dynamic-astar"
+      >动态A*</view>
+      <view
+        class="mode-pill {{currentAlgorithm === 'fast-astar' ? 'active' : ''}}"
+        bindtap="selectAlgorithm"
+        data-algo="fast-astar"
+      >快速A*</view>
+    </view>
+  </view>
+  <view class="bottom-panel">
+    <view class="distance-bar">
+      <text class="distance-icon">➤</text>
+      <text class="distance-text">{{routeDistanceText}}</text>
+    </view>
+    <view class="action-row triple">
+      <view class="action-btn secondary" bindtap="resetSimulation">模拟导航</view>
+      <view class="action-btn tool-center" bindtap="showAlgorithmComparison">比</view>
+      <view class="action-btn primary" bindtap="startNavigation">{{btnText}}</view>
+    </view>
   </view>
 
-  <!-- 目的地选择器 -->
-  <view class="destination-picker" wx:if="{{showDestPicker}}">
-    <view class="picker-header">
-      <text>选择目的地</text>
-      <button class="close-btn" bindtap="closePicker">×</button>
-    </view>
-    <scroll-view class="picker-list" scroll-y>
-      <view 
-        class="dest-item" 
-        wx:for="{{destinations}}" 
-        wx:key="id"
-        bindtap="selectDest"
-        data-id="{{item.id}}"
-      >
-        <text class="dest-name">{{item.name}}</text>
-        <text class="dest-desc">{{item.desc}}</text>
+  <view class="comparison-modal" wx:if="{{showComparison}}" catchtap="hideComparison">
+    <view class="comparison-content" catchtap="preventClose">
+      <view class="comparison-header">
+        <view class="comparison-title">算法性能对比</view>
+        <view class="comparison-close" catchtap="hideComparison">✕</view>
       </view>
-    </scroll-view>
-  </view>
-
-  <!-- 加载提示 -->
-  <view class="loading" wx:if="{{loading}}">
-    <text>地图加载中...</text>
+      <view class="comparison-table">
+        <view class="comparison-row header">
+          <view class="col">算法</view>
+          <view class="col">路径长度</view>
+          <view class="col">扩展节点</view>
+          <view class="col">耗时(ms)</view>
+        </view>
+        <view class="comparison-row {{item.best ? 'best' : ''}}" wx:for="{{comparisonResults}}" wx:key="id">
+          <view class="col name">{{item.name}}</view>
+          <view class="col">{{item.pathLength || '-'}}</view>
+          <view class="col">{{item.nodesExpanded}}</view>
+          <view class="col">{{item.computeTime.toFixed(2)}}</view>
+        </view>
+      </view>
+      <view class="comparison-actions">
+        <view class="modal-btn" bindtap="runComparison">重新测试</view>
+      </view>
+    </view>
   </view>
 </view>

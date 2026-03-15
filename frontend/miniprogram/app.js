@@ -2,17 +2,17 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    baseUrl: 'http://localhost:5001/api'
+    baseUrl: 'http://localhost:3001/api'
   },
-  
+
   onLaunch() {
     // 小程序初始化时执行
     console.log('智能停车场小程序启动');
-    
+
     // 检查登录状态
     this.checkLogin();
   },
-  
+
   // 检查登录状态
   checkLogin() {
     const token = wx.getStorageSync('token');
@@ -21,7 +21,7 @@ App({
       // 可以在这里验证token有效性
     }
   },
-  
+
   // 用户登录
   login(successCallback) {
     wx.login({
@@ -39,11 +39,11 @@ App({
                 // 保存用户信息和token
                 this.globalData.userInfo = loginRes.data.data.user;
                 this.globalData.token = loginRes.data.data.token;
-                
+
                 // 保存到本地存储
                 wx.setStorageSync('userInfo', loginRes.data.data.user);
                 wx.setStorageSync('token', loginRes.data.data.token);
-                
+
                 if (successCallback) {
                   successCallback(loginRes.data.data);
                 }
