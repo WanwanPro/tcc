@@ -658,62 +658,125 @@ Page({
     }
   },
 
+  drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
+    ctx.lineTo(x + r, y + height);
+    ctx.arcTo(x, y + height, x, y + height - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  },
+
+  drawLaneMarking(ctx, px, py) {
+    const centerX = px + CELL_SIZE / 2;
+    const centerY = py + CELL_SIZE / 2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 7]);
+    ctx.beginPath();
+    ctx.moveTo(centerX - 12, centerY);
+    ctx.lineTo(centerX + 12, centerY);
+    ctx.stroke();
+    ctx.restore();
+  },
+
   drawMap(ctx) {
+    const mapWidth = mapGrid[0] ? mapGrid[0].length * CELL_SIZE : 0;
+    const mapHeight = mapGrid.length * CELL_SIZE;
+
+    ctx.save();
+    ctx.fillStyle = '#dfe5ec';
+    ctx.fillRect(0, 0, mapWidth, mapHeight);
+    ctx.restore();
+
     for (let y = 0; y < mapGrid.length; y++) {
       for (let x = 0; x < mapGrid[y].length; x++) {
         const type = mapGrid[y][x];
         const px = x * CELL_SIZE;
         const py = y * CELL_SIZE;
 
-        ctx.fillStyle = '#e5e7eb';
-        ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-
         if (type === WALL) {
-          ctx.fillStyle = '#9ca3af';
+          ctx.save();
+          ctx.fillStyle = '#8b949f';
           ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-          ctx.fillStyle = '#6b7280';
+          ctx.fillStyle = '#727b87';
           ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+          ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(px + 4, py + 4);
+          ctx.lineTo(px + CELL_SIZE - 4, py + CELL_SIZE - 4);
+          ctx.moveTo(px + CELL_SIZE - 4, py + 4);
+          ctx.lineTo(px + 4, py + CELL_SIZE - 4);
+          ctx.stroke();
+          ctx.restore();
         } else if (type === OCCUPIED) {
+          ctx.save();
+          ctx.fillStyle = '#eef2f6';
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          this.drawRoundedRect(ctx, px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8, 4);
+          ctx.fillStyle = '#fef2f2';
+          ctx.fill();
           ctx.strokeStyle = '#f87171';
           ctx.lineWidth = 2;
-          ctx.strokeRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
-
-          ctx.fillStyle = '#fecaca';
-          ctx.fillRect(px + 8, py + 12, CELL_SIZE - 16, CELL_SIZE - 24);
-
-          const id = gridToSpaceMap[`${x},${y}`];
-          if (id) {
-            ctx.fillStyle = '#ef4444';
-            ctx.font = '8px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(id, px + CELL_SIZE / 2, py + CELL_SIZE / 2);
-          }
-        } else if (type === SPOT || type === TARGET) {
-          ctx.strokeStyle = 'white';
+          ctx.stroke();
+          ctx.strokeStyle = '#ef4444';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.rect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+          ctx.moveTo(px + 10, py + 10);
+          ctx.lineTo(px + CELL_SIZE - 10, py + CELL_SIZE - 10);
+          ctx.moveTo(px + CELL_SIZE - 10, py + 10);
+          ctx.lineTo(px + 10, py + CELL_SIZE - 10);
           ctx.stroke();
 
           const id = gridToSpaceMap[`${x},${y}`];
           if (id) {
-            ctx.save();
-            ctx.fillStyle = '#6b7280';
-            ctx.font = '10px Arial';
+            ctx.fillStyle = '#b91c1c';
+            ctx.font = '9px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(id, px + CELL_SIZE / 2, py + CELL_SIZE / 2 + 13);
+          }
+          ctx.restore();
+        } else if (type === SPOT || type === TARGET) {
+          ctx.save();
+          ctx.fillStyle = '#eef2f6';
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          this.drawRoundedRect(ctx, px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8, 4);
+          ctx.fillStyle = type === TARGET ? '#dcfce7' : '#ffffff';
+          ctx.fill();
+          ctx.strokeStyle = type === TARGET ? '#16a34a' : '#cbd5e1';
+          ctx.lineWidth = type === TARGET ? 2.5 : 2;
+          ctx.stroke();
+
+          const id = gridToSpaceMap[`${x},${y}`];
+          if (id) {
+            ctx.fillStyle = type === TARGET ? '#166534' : '#64748b';
+            ctx.font = '9px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(id, px + CELL_SIZE / 2, py + CELL_SIZE / 2 + 4);
-            ctx.restore();
           }
 
           if (type === TARGET) {
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.5)';
-            ctx.fillRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
-            ctx.fillStyle = '#059669';
+            ctx.fillStyle = '#22c55e';
             ctx.beginPath();
-            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2 - 12, 4, 0, Math.PI * 2);
+            ctx.arc(px + CELL_SIZE / 2, py + 11, 4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillRect(px + CELL_SIZE / 2 - 1, py + CELL_SIZE / 2 - 12, 2, 16);
+            ctx.fillRect(px + CELL_SIZE / 2 - 1, py + 11, 2, 10);
           }
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.fillStyle = '#d4dae2';
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          this.drawLaneMarking(ctx, px, py);
+          ctx.restore();
         }
       }
     }
@@ -722,16 +785,12 @@ Page({
   drawPath(ctx) {
     if (currentPath.length < 2) return;
 
+    ctx.save();
     ctx.beginPath();
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 10;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.setLineDash([10, 10]);
-
-    const offset = (Date.now() / 50) % 20;
-    ctx.lineDashOffset = -offset;
-
     ctx.moveTo(car.x, car.y);
     let startIndex = car.targetIndex;
 
@@ -745,7 +804,32 @@ Page({
       }
     }
     ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([12, 10]);
+
+    const offset = (Date.now() / 50) % 20;
+    ctx.lineDashOffset = -offset;
+
+    ctx.moveTo(car.x, car.y);
+    startIndex = car.targetIndex;
+
+    if (startIndex < currentPath.length) {
+      const next = currentPath[startIndex];
+      ctx.lineTo(next.x * CELL_SIZE + CELL_SIZE / 2, next.y * CELL_SIZE + CELL_SIZE / 2);
+
+      for (let i = startIndex + 1; i < currentPath.length; i++) {
+        const p = currentPath[i];
+        ctx.lineTo(p.x * CELL_SIZE + CELL_SIZE / 2, p.y * CELL_SIZE + CELL_SIZE / 2);
+      }
+    }
+    ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
   },
 
   handleArrival() {
