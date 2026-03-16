@@ -687,12 +687,64 @@ Page({
     ctx.restore();
   },
 
+  drawLaneArrow(ctx, px, py, direction = 'forward') {
+    const centerX = px + CELL_SIZE / 2;
+    const centerY = py + CELL_SIZE / 2;
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    if (direction === 'left') ctx.rotate(-Math.PI / 2);
+    if (direction === 'right') ctx.rotate(Math.PI / 2);
+    if (direction === 'back') ctx.rotate(Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,0.58)';
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(7, 2);
+    ctx.lineTo(2, 2);
+    ctx.lineTo(2, 10);
+    ctx.lineTo(-2, 10);
+    ctx.lineTo(-2, 2);
+    ctx.lineTo(-7, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  },
+
+  getAreaTint(x, gridWidth) {
+    const ratio = gridWidth > 0 ? x / gridWidth : 0;
+    if (ratio < 0.25) return 'rgba(59, 130, 246, 0.07)';
+    if (ratio < 0.5) return 'rgba(16, 185, 129, 0.06)';
+    if (ratio < 0.75) return 'rgba(245, 158, 11, 0.06)';
+    return 'rgba(236, 72, 153, 0.05)';
+  },
+
+  drawEntranceMarker(ctx) {
+    const px = carStartGrid.x * CELL_SIZE + CELL_SIZE / 2;
+    const py = carStartGrid.y * CELL_SIZE + CELL_SIZE / 2;
+    ctx.save();
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath();
+    ctx.arc(px, py, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('P', px, py + 4);
+    ctx.fillStyle = 'rgba(15,23,42,0.75)';
+    this.drawRoundedRect(ctx, px - 28, py - 28, 56, 16, 8);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '9px Arial';
+    ctx.fillText('入口', px, py - 16);
+    ctx.restore();
+  },
+
   drawMap(ctx) {
     const mapWidth = mapGrid[0] ? mapGrid[0].length * CELL_SIZE : 0;
     const mapHeight = mapGrid.length * CELL_SIZE;
+    const gridWidth = mapGrid[0] ? mapGrid[0].length : 0;
 
     ctx.save();
-    ctx.fillStyle = '#dfe5ec';
+    ctx.fillStyle = '#dde3ea';
     ctx.fillRect(0, 0, mapWidth, mapHeight);
     ctx.restore();
 
@@ -748,12 +800,16 @@ Page({
           ctx.save();
           ctx.fillStyle = '#eef2f6';
           ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          ctx.fillStyle = this.getAreaTint(x, gridWidth);
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
           this.drawRoundedRect(ctx, px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8, 4);
           ctx.fillStyle = type === TARGET ? '#dcfce7' : '#ffffff';
           ctx.fill();
           ctx.strokeStyle = type === TARGET ? '#16a34a' : '#cbd5e1';
           ctx.lineWidth = type === TARGET ? 2.5 : 2;
           ctx.stroke();
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(px + 9, py + 7, CELL_SIZE - 18, 3);
 
           const id = gridToSpaceMap[`${x},${y}`];
           if (id) {
@@ -773,13 +829,21 @@ Page({
           ctx.restore();
         } else {
           ctx.save();
-          ctx.fillStyle = '#d4dae2';
+          ctx.fillStyle = '#cfd6de';
+          ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+          ctx.fillStyle = this.getAreaTint(x, gridWidth);
           ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
           this.drawLaneMarking(ctx, px, py);
+          if ((x + y) % 6 === 0) {
+            const direction = y % 2 === 0 ? 'forward' : 'right';
+            this.drawLaneArrow(ctx, px, py, direction);
+          }
           ctx.restore();
         }
       }
     }
+
+    this.drawEntranceMarker(ctx);
   },
 
   drawPath(ctx) {
