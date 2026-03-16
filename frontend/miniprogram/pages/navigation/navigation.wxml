@@ -51,8 +51,7 @@
   </view>
   <view class="bottom-panel">
     <view class="distance-bar">
-      <text class="distance-icon">➤</text>
-      <text class="distance-text">{{routeDistanceText}}</text>
+      <text class="distance-icon dynamic" style="{{directionArrowStyle}}">↑</text>
     </view>
     <view class="action-row triple">
       <view class="action-btn secondary" bindtap="resetSimulation">模拟导航</view>

@@ -211,6 +211,15 @@ page {
   font-size: 24rpx;
 }
 
+.distance-icon.dynamic {
+  display: inline-block;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1;
+  transform-origin: center center;
+  transition: transform 0.16s linear;
+}
+
 .action-row {
   display: grid;
   grid-template-columns: 1fr 96rpx 1fr;

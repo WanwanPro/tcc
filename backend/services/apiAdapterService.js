@@ -63,52 +63,46 @@ async function getSystemAuthToken() {
  */
 async function getParkingSpacesFromSystem(lotId = 'default_lot') {
   try {
-    const token = await getSystemAuthToken();
-    
-    // 直接使用System后台管理系统的停车位接口（与前端使用同一接口）
-    // 使用limit=1000获取所有车位数据
+    // 优先使用 System 中专门给小程序准备的车位接口，
+    // 这样返回字段和小程序展示会更一致。
     const response = await axios.get(
-      `${SYSTEM_API_BASE_URL}/admin/parking-spaces`,
+      `${SYSTEM_API_BASE_URL}/spaces`,
       {
         params: {
-          limit: 1000,
-          page: 1
-        },
-        headers: {
-          'Authorization': `Bearer ${token}`
+          parkingId: lotId
         }
       }
     );
-    
-    // System后台返回的格式: { success: true, data: { items: [...], total: ... } }
+
     let spaces = [];
     if (response.data && response.data.success) {
-      if (response.data.data && response.data.data.items) {
-        spaces = response.data.data.items;
-      } else if (response.data.data && response.data.data.spaces) {
-        spaces = response.data.data.spaces;
-      } else if (Array.isArray(response.data.data)) {
+      if (Array.isArray(response.data.data)) {
         spaces = response.data.data;
+      } else if (response.data.data && Array.isArray(response.data.data.spaces)) {
+        spaces = response.data.data.spaces;
       }
     }
-    
-    // 使用数据模型映射服务将System后台格式的数据转换为微信小程序格式
+
     const mappedSpaces = spaces.map(space => {
-      try {
-        return dataModelMappingService.mapParkingSpaceToMiniprogram(space);
-      } catch (mapError) {
-        console.error(`[getParkingSpacesFromSystem] 映射车位失败:`, space.spaceId, mapError.message);
-        // 如果映射失败，返回一个默认的空闲车位
-        return {
-          spaceId: space.spaceId || space._id?.toString() || 'UNKNOWN',
-          position: space.position || { x: 0, y: 0 },
-          status: '空闲',
-          updatedAt: space.updatedAt || space.lastUpdated || new Date()
-        };
-      }
+      const statusKey = dataModelMappingService.mapStatusToSystem(space.status);
+      const statusText = dataModelMappingService.mapStatusToMiniprogram(statusKey);
+      return {
+        id: space.id || space._id?.toString() || '',
+        spaceId: space.spaceId || 'UNKNOWN',
+        lotId: space.lotId?._id?.toString?.() || space.lotId || '',
+        lotName: space.lotName || space.lotId?.name || '',
+        floorId: space.floorId || '',
+        area: space.area || '',
+        type: space.type || 'standard',
+        position: space.position || { x: 0, y: 0 },
+        occupiedBy: space.occupiedBy || null,
+        status: statusText,
+        statusKey,
+        statusText,
+        updatedAt: space.updatedAt || space.lastUpdated || new Date()
+      };
     });
-    
-    // 统计映射后的状态分布
+
     const statusCount = mappedSpaces.reduce((acc, space) => {
       acc[space.status] = (acc[space.status] || 0) + 1;
       return acc;
@@ -135,20 +129,13 @@ async function getParkingSpacesFromSystem(lotId = 'default_lot') {
  */
 async function updateParkingSpaceStatusInSystem(spaceId, status) {
   try {
-    const token = await getSystemAuthToken();
-    
-    // 使用数据模型映射服务将微信小程序状态转换为System后台状态
-    const systemSpace = {
-      status: status // 将在System后台的控制器中进行状态映射
-    };
-    
-    const response = await axios.put(
-      `${SYSTEM_API_BASE_URL}/parking/spaces/${spaceId}/status-with-sync`,
-      systemSpace,
+    // 使用 System 中给小程序的专用状态更新接口。
+    // 该接口按 spaceId 工作，并在内部完成中文/英文状态映射。
+    const response = await axios.post(
+      `${SYSTEM_API_BASE_URL}/spaces/update`,
       {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        spaceId,
+        status: dataModelMappingService.mapStatusToMiniprogram(status)
       }
     );
     

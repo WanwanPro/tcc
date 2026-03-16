@@ -108,13 +108,16 @@ Page({
     // 转换车位数据为 GeoJSON 格式
     const features = spaces.map(space => {
       const [lng, lat] = space.position.lngLat || [113.0 + space.position.x / 100000, 23.0 + space.position.y / 100000];
+      const statusKey = space.statusKey || (space.status === '空闲' || space.status === 'available' ? 'available' : 'occupied');
+      const statusText = space.statusText || space.status || (statusKey === 'available' ? '空闲' : '占用');
       
       return {
         type: 'Feature',
         properties: {
           type: 'parking_spot',
           spaceId: space.spaceId,
-          status: space.status === '空闲' || space.status === 'available' ? 'available' : 'occupied',
+          status: statusKey,
+          statusText,
           area: space.area,
           floorId: space.floorId
         },
@@ -250,6 +253,7 @@ Page({
         return {
           spaceId: feature.properties.spaceId,
           status: feature.properties.status,
+          statusText: feature.properties.statusText,
           area: feature.properties.area,
           floorId: feature.properties.floorId
         };
@@ -324,7 +328,7 @@ Page({
     }
     if (this.data.selectedSpace.status === 'occupied') {
       wx.showToast({
-        title: '该车位已占用',
+        title: this.data.selectedSpace.statusText || '该车位已占用',
         icon: 'error'
       });
       return;

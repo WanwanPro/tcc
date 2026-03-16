@@ -14,11 +14,17 @@ router.get('/', async (req, res) => {
     // 使用数据模型映射服务转换为微信小程序格式（确保状态为中文）
     const formattedSpaces = spaces.map(space => {
       const mappedSpace = dataModelMappingService.mapParkingSpaceToMiniprogram(space);
+      const statusKey = dataModelMappingService.mapStatusToSystem(mappedSpace.status);
       // 补充额外字段
+      mappedSpace.id = space._id.toString();
+      mappedSpace.lotId = space.lotId ? space.lotId._id?.toString?.() || space.lotId.toString() : '';
       mappedSpace.floorId = space.floorId;
       mappedSpace.area = space.area;
       mappedSpace.type = space.type;
       mappedSpace.lotName = space.lotId ? space.lotId.name : '未知停车场';
+      mappedSpace.occupiedBy = space.occupiedBy || null;
+      mappedSpace.statusKey = statusKey;
+      mappedSpace.statusText = mappedSpace.status;
       return mappedSpace;
     })
     
@@ -66,7 +72,20 @@ router.post('/update', async (req, res) => {
     res.status(200).json({
       success: true,
       message: '停车位状态更新成功',
-      data: space
+      data: {
+        id: space._id.toString(),
+        spaceId: space.spaceId,
+        lotId: space.lotId ? space.lotId.toString() : '',
+        floorId: space.floorId,
+        area: space.area,
+        type: space.type,
+        position: space.position,
+        occupiedBy: space.occupiedBy || null,
+        status: dataModelMappingService.mapStatusToMiniprogram(space.status),
+        statusKey: space.status,
+        statusText: dataModelMappingService.mapStatusToMiniprogram(space.status),
+        updatedAt: space.lastUpdated || space.updatedAt
+      }
     })
   } catch (error) {
     console.error('更新停车位状态失败:', error)

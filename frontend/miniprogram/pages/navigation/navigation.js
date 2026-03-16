@@ -12,11 +12,11 @@ const ROAD = 0;
 const SPOT = 2;
 const TARGET = 3;
 const OCCUPIED = 4;
-const CAMERA_FOLLOW_DISTANCE = 180;
+const CAMERA_FOLLOW_DISTANCE = 156;
 const CAMERA_PARK_DISTANCE = 38;
-const CAMERA_HEADING_LERP = 0.08;
-const CAMERA_FOLLOW_LERP = 0.055;
-const CAMERA_PARK_LERP = 0.12;
+const CAMERA_HEADING_LERP = 0.055;
+const CAMERA_FOLLOW_LERP = 0.04;
+const CAMERA_PARK_LERP = 0.09;
 const CAMERA_RETURN_DAMPING = 0.9;
 const CAMERA_RETURN_EPSILON = 0.002;
 const CAMERA_LOWER_THIRD_RATIO = 0.54;
@@ -56,7 +56,7 @@ class Car {
     this.path = [];
     this.targetIndex = 0;
     this.isMoving = false;
-    this.speed = 1.5;
+    this.speed = 1.15;
   }
 
   setPath(path) {
@@ -152,6 +152,7 @@ Page({
     startPointLabel: '入口1',
     destinationLabel: '请选择车位',
     routeDistanceText: '0 米',
+    directionArrowStyle: 'transform: rotate(0deg);',
     currentFloor: 'B2',
     floorOptions: ['1F', 'B1', 'B2'],
     // 算法相关
@@ -628,6 +629,7 @@ Page({
     cameraPos.x += (followTargetX - cameraPos.x) * followLerp;
     cameraPos.y += (followTargetY - cameraPos.y) * followLerp;
     this.clampCameraToMap(anchorX, anchorY, logicWidth, viewport);
+    this.updateDirectionArrow();
 
     ctx.save();
     ctx.beginPath();
@@ -646,6 +648,14 @@ Page({
     ctx.restore();
 
     this.animationId = this.canvas.requestAnimationFrame(() => this.animate());
+  },
+
+  updateDirectionArrow() {
+    const rotationDeg = Math.round((car.angle * 180) / Math.PI);
+    const nextStyle = `transform: rotate(${rotationDeg}deg);`;
+    if (this.data.directionArrowStyle !== nextStyle) {
+      this.setData({ directionArrowStyle: nextStyle });
+    }
   },
 
   drawMap(ctx) {

@@ -87,7 +87,7 @@ Page({
           
           // 统计所有状态分布
           const statusBreakdown = spaces.reduce((acc, space) => {
-            const status = space.status || 'unknown';
+            const status = space.statusKey || space.status || 'unknown';
             acc[status] = (acc[status] || 0) + 1;
             return acc;
           }, {});
@@ -96,15 +96,15 @@ Page({
           // 空闲状态包括：'空闲' 或 'available'
           // 占用状态：'占用'/'occupied'/'reserved'/'预定'/'maintenance'
           const freeSpaces = spaces.filter(space => {
-            const status = space.status;
-            return status === '空闲' || status === 'available';
+            const status = space.statusKey || space.status;
+            return status === 'available' || status === '空闲';
           }).length;
           
           const occupiedSpaces = spaces.filter(space => {
-            const status = space.status;
-            return status === '占用' || status === 'occupied' || 
+            const status = space.statusKey || space.status;
+            return status === 'occupied' || status === '占用' || 
                    status === 'reserved' || status === '预定' || 
-                   status === 'maintenance';
+                   status === 'maintenance' || status === '维护中';
           }).length;
           
           console.log('[微信小程序] 统计:', {
