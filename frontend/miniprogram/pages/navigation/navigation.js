@@ -73,6 +73,7 @@ class Car {
     this.path = [];
     this.targetIndex = 0;
     this.isMoving = false;
+    this.isPaused = false;
     this.speed = 1.15;
   }
 
@@ -80,13 +81,27 @@ class Car {
     this.path = path;
     this.targetIndex = 1;
     this.isMoving = true;
+    this.isPaused = false;
+  }
+
+  pause() {
+    if (this.isMoving) {
+      this.isPaused = true;
+    }
+  }
+
+  resume() {
+    if (this.isMoving) {
+      this.isPaused = false;
+    }
   }
 
   update() {
-    if (!this.isMoving || this.path.length === 0) return;
+    if (!this.isMoving || this.isPaused || this.path.length === 0) return;
 
     if (this.targetIndex >= this.path.length) {
       this.isMoving = false;
+      this.isPaused = false;
       return;
     }
 
@@ -599,11 +614,12 @@ Page({
         currentPath = path;
         car.setPath(path);
         arrivalHandled = false;
-        this.setData({ btnText: "行驶中..." });
+        this.setData({ btnText: "暂停导航" });
         this.resetCamera();
       } else {
         currentPath = [];
         car.isMoving = false;
+        car.isPaused = false;
         this.setData({ btnText: "开始导航" });
       }
     } else {
@@ -618,7 +634,23 @@ Page({
   },
 
   startNavigation() {
-    if (car.isMoving && currentPath.length > 0) return;
+    if (car.isMoving && currentPath.length > 0) {
+      if (car.isPaused) {
+        car.resume();
+        this.setData({
+          btnText: '暂停导航',
+          statusMsg: '继续前往目标车位'
+        });
+      } else {
+        car.pause();
+        this.setData({
+          btnText: '继续导航',
+          statusMsg: '导航已暂停'
+        });
+      }
+      return;
+    }
+
     this.calculatePath(true);
   },
 
@@ -710,7 +742,7 @@ Page({
 
     car.update();
 
-    if (!car.isMoving && this.data.btnText === '行驶中...' && !arrivalHandled) {
+    if (!car.isMoving && !car.isPaused && currentPath.length > 0 && !arrivalHandled) {
       arrivalHandled = true;
       this.setData({ btnText: '导航结束', statusMsg: '已到达目的地' });
       this.handleArrival();
