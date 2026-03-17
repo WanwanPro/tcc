@@ -47,6 +47,18 @@ let currentStats = {};
 let touchSession = null;
 let pinchSession = null;
 let previewPath = [];
+let statusRefreshTimer = null;
+
+const STATUS_REFRESH_INTERVAL = 3000;
+
+function normalizeDisplayId(rawId = '') {
+  const matched = String(rawId).match(/(\d{3})$/);
+  return matched ? matched[1] : String(rawId);
+}
+
+function buildCanonicalSpaceId(displayId = '') {
+  return displayId.startsWith('TCC1-') ? displayId : `TCC1-${displayId}`;
+}
 
 /**
  * 2. 车辆类定义
@@ -205,7 +217,16 @@ Page({
       });
   },
 
+  onShow() {
+    this.startStatusAutoRefresh();
+  },
+
+  onHide() {
+    this.stopStatusAutoRefresh();
+  },
+
   onUnload() {
+    this.stopStatusAutoRefresh();
     if (this.animationId) {
       this.canvas.cancelAnimationFrame(this.animationId);
     }
@@ -350,8 +371,19 @@ Page({
       if (p.x >= 0 && p.x < GRID_W && p.y >= 0 && p.y < GRID_H) {
         grid[p.y][p.x] = SPOT;
         const numId = (index + 1).toString().padStart(3, '0');
-        spotMap[numId] = { x: p.x, y: p.y, fullId: item.feature.properties.id, numId: index + 1 };
-        gridToSpaceMap[`${p.x},${p.y}`] = numId;
+        const displayId = numId;
+        const spaceId = buildCanonicalSpaceId(displayId);
+        const meta = {
+          x: p.x,
+          y: p.y,
+          fullId: item.feature.properties.id,
+          numId: index + 1,
+          displayId,
+          spaceId
+        };
+        spotMap[displayId] = meta;
+        spotMap[spaceId] = meta;
+        gridToSpaceMap[`${p.x},${p.y}`] = meta;
       }
     });
 
@@ -425,7 +457,8 @@ Page({
     this.fetchParkingStatus();
 
     if (this.options && this.options.spaceId) {
-      const target = spotMap[this.options.spaceId];
+      const normalizedId = normalizeDisplayId(this.options.spaceId);
+      const target = spotMap[this.options.spaceId] || spotMap[normalizedId] || spotMap[buildCanonicalSpaceId(normalizedId)];
       if (target) {
         this.setTarget(target.x, target.y);
       } else {
@@ -436,8 +469,23 @@ Page({
     }
   },
 
+  startStatusAutoRefresh() {
+    this.stopStatusAutoRefresh();
+    this.fetchParkingStatus();
+    statusRefreshTimer = setInterval(() => {
+      this.fetchParkingStatus();
+    }, STATUS_REFRESH_INTERVAL);
+  },
+
+  stopStatusAutoRefresh() {
+    if (statusRefreshTimer) {
+      clearInterval(statusRefreshTimer);
+      statusRefreshTimer = null;
+    }
+  },
+
   findRandomTarget() {
-    const keys = Object.keys(spotMap);
+    const keys = Object.keys(spotMap).filter(key => /^\d{3}$/.test(key));
     if (keys.length > 0) {
       const randomKey = keys[Math.floor(Math.random() * keys.length)];
       const t = spotMap[randomKey];
@@ -455,7 +503,8 @@ Page({
     currentTarget = { x, y };
     mapGrid[y][x] = TARGET;
 
-    const id = gridToSpaceMap[`${x},${y}`];
+    const meta = gridToSpaceMap[`${x},${y}`];
+    const id = meta ? meta.displayId : '';
     this.setData({
       statusMsg: `目标: ${id || '未知'}`,
       btnText: "开始导航",
@@ -466,24 +515,52 @@ Page({
   },
 
   fetchParkingStatus() {
-    const total = Object.keys(spotMap).length;
-    const occupiedCount = 7;
+    const app = getApp();
+    const allSpots = Object.values(gridToSpaceMap);
+    const total = allSpots.length;
 
-    let occupied = 0;
-    Object.keys(spotMap).forEach(key => {
-      const spot = spotMap[key];
-      if (occupied < occupiedCount && Math.random() < 0.05) {
-        mapGrid[spot.y][spot.x] = OCCUPIED;
-        occupied++;
-      } else {
-        if (mapGrid[spot.y][spot.x] !== TARGET) {
-          mapGrid[spot.y][spot.x] = SPOT;
-        }
+    wx.request({
+      url: `${app.globalData.baseUrl}/spaces?_t=${Date.now()}`,
+      method: 'GET',
+      success: (res) => {
+        const spaces = Array.isArray(res.data?.data) ? res.data.data : [];
+        const occupiedSet = new Set();
+
+        spaces.forEach(space => {
+          const status = space.statusKey || space.status;
+          const unavailable = status === 'occupied' || status === '占用' ||
+            status === 'reserved' || status === '预定' ||
+            status === 'maintenance' || status === '维护中';
+
+          if (unavailable) {
+            const displayId = normalizeDisplayId(space.spaceId || space.spaceNumber || '');
+            if (displayId) {
+              occupiedSet.add(displayId);
+            }
+          }
+        });
+
+        let occupied = 0;
+        allSpots.forEach((spot) => {
+          if (!spot) return;
+          const isOccupied = occupiedSet.has(spot.displayId);
+          if (currentTarget && currentTarget.x === spot.x && currentTarget.y === spot.y) {
+            mapGrid[spot.y][spot.x] = TARGET;
+            return;
+          }
+          mapGrid[spot.y][spot.x] = isOccupied ? OCCUPIED : SPOT;
+          if (isOccupied) occupied++;
+        });
+
+        this.setData({
+          statusMsg: `数据同步完成: 空闲 ${total - occupied}, 占用 ${occupied}`
+        });
+      },
+      fail: () => {
+        this.setData({
+          statusMsg: '车位状态同步失败，显示缓存地图'
+        });
       }
-    });
-
-    this.setData({
-      statusMsg: `数据同步完成: 空闲 ${total - occupied}, 占用 ${occupied}`
     });
   },
 
@@ -823,7 +900,8 @@ Page({
           ctx.lineTo(px + 10, py + CELL_SIZE - 10);
           ctx.stroke();
 
-          const id = gridToSpaceMap[`${x},${y}`];
+          const meta = gridToSpaceMap[`${x},${y}`];
+          const id = meta ? meta.displayId : '';
           if (id) {
             ctx.fillStyle = '#b91c1c';
             ctx.font = '9px Arial';
@@ -846,7 +924,8 @@ Page({
           ctx.fillStyle = '#94a3b8';
           ctx.fillRect(px + 9, py + 7, CELL_SIZE - 18, 3);
 
-          const id = gridToSpaceMap[`${x},${y}`];
+          const meta = gridToSpaceMap[`${x},${y}`];
+          const id = meta ? meta.displayId : '';
           if (id) {
             ctx.fillStyle = type === TARGET ? '#166534' : '#64748b';
             ctx.font = '9px Arial';
@@ -939,14 +1018,16 @@ Page({
     const ty = currentTarget.y;
     mapGrid[ty][tx] = OCCUPIED;
 
-    const id = gridToSpaceMap[`${tx},${ty}`];
+    const meta = gridToSpaceMap[`${tx},${ty}`];
+    const displayId = meta ? meta.displayId : '';
+    const spaceId = meta ? meta.spaceId : '';
 
     const app = getApp();
-    if (app && app.globalData && app.globalData.baseUrl) {
+    if (app && app.globalData && app.globalData.baseUrl && spaceId) {
       wx.request({
         url: `${app.globalData.baseUrl}/spaces/update`,
         method: 'POST',
-        data: { spaceId: id, status: '占用' },
+        data: { spaceId, status: '占用' },
         success: () => wx.showToast({ title: '已落锁', icon: 'success' })
       });
     } else {
@@ -1085,7 +1166,8 @@ Page({
       if (type === SPOT || type === TARGET) {
         this.setTarget(gridX, gridY);
       } else if (type === OCCUPIED) {
-        const id = gridToSpaceMap[`${gridX},${gridY}`];
+        const meta = gridToSpaceMap[`${gridX},${gridY}`];
+        const id = meta ? meta.displayId : '';
         this.setData({
           statusMsg: `⚠️ 车位 ${id || ''} 已被占用`
         });

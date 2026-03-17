@@ -72,8 +72,7 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                  <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                  <el-dropdown-item command="logout">退出登录</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -84,7 +83,7 @@
         <el-main class="main-content">
           <router-view v-slot="{ Component, route }">
             <transition name="fade-transform" mode="out-in">
-              <keep-alive :include="['ParkingSpaces', 'ParkingStatus', 'ParkingRecords', 'ParkingFees', 'ParkingStatistics']">
+              <keep-alive :include="['ParkingSpaces', 'ParkingStatus', 'ParkingFees']">
                 <component :is="Component" :key="route.path" v-if="Component" />
               </keep-alive>
             </transition>
@@ -159,10 +158,6 @@ const toggleSidebar = () => {
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   switch (command) {
-    case 'profile':
-      // 跳转到个人中心
-      router.push('/profile')
-      break
     case 'logout':
       // 退出登录
       ElMessageBox.confirm('确定要退出登录吗？', '提示', {

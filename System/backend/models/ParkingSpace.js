@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const { broadcastParkingSpaceChanged } = require('../services/parkingSpaceEvents')
 
 const parkingSpaceSchema = new mongoose.Schema({
   spaceId: {
@@ -78,6 +79,11 @@ parkingSpaceSchema.post('findOneAndUpdate', async function(doc) {
 async function syncToMiniprogram(doc) {
   // 只在状态字段存在且spaceId存在时同步
   if (doc && doc.spaceId) {
+    broadcastParkingSpaceChanged({
+      spaceId: doc.spaceId,
+      status: doc.status
+    })
+
     try {
       const miniprogramApiAdapter = require('../services/miniprogramApiAdapterService');
       await miniprogramApiAdapter.updateParkingSpaceStatusInMiniprogram(

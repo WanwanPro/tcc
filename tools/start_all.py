@@ -9,6 +9,32 @@ import urllib.error
 import shutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LOG_MODE = os.environ.get('START_ALL_LOG_MODE', 'quiet').strip().lower()
+
+NOISY_PATTERNS = [
+    '状态已同步到微信小程序后端',
+    '状态已同步到system后台',
+    '从system后台获取到',
+    '映射后状态统计',
+    '从system后台获取数据，共',
+    'Local: http://',
+    'Network: http://',
+    'ready in ',
+]
+
+IMPORTANT_PATTERNS = [
+    '[error]',
+    ' error',
+    '[warn]',
+    ' warn',
+    ' failed',
+    ' exception',
+    ' refused',
+    ' exited with code',
+    'too many requests',
+    ' 429 ',
+    ' 500 ',
+]
 
 def which(cmd):
     return shutil.which(cmd) is not None
@@ -55,12 +81,39 @@ def free_port(port):
         except Exception:
             pass
 
+def should_print_line(line):
+    text = line.strip()
+    if not text:
+        return False
+
+    if LOG_MODE == 'verbose':
+        return True
+
+    lowered = text.lower()
+
+    if any(pattern in lowered for pattern in IMPORTANT_PATTERNS):
+        return True
+
+    if lowered.startswith('[nodemon]') and ('starting' in lowered or 'app crashed' in lowered):
+        return True
+
+    if lowered.startswith('server running') or lowered.startswith('vite v'):
+        return True
+
+    if '"get ' in lowered or '"post ' in lowered or '"put ' in lowered or '"delete ' in lowered:
+        return False
+
+    if any(pattern in lowered for pattern in NOISY_PATTERNS):
+        return False
+
+    return False
+
 def read_stream(name, stream):
     for line in iter(stream.readline, ''):
         if not line:
             break
         s = line.rstrip('\n')
-        if s:
+        if s and should_print_line(s):
             print(f'[{name}] {s}')
 
 def start_process(name, cmd, cwd, env=None, use_shell=None):
@@ -152,7 +205,18 @@ def main():
         sys.exit(1)
     ensure_dependencies()
 
+    if LOG_MODE == 'verbose':
+        print('[INFO] Log mode: verbose')
+    else:
+        print('[INFO] Log mode: quiet (showing warnings/errors and key startup lines only)')
+
     services = []
+
+    def register_service(name, process):
+        services.append({
+            'name': name,
+            'process': process
+        })
 
     print('[BOOT] Starting TCC API (backend)')
     free_port(3001)
@@ -166,7 +230,7 @@ def main():
             'MONGODB_URI': 'mongodb://localhost:27017/parking_system',
         }
     )
-    services.append(tcc_api)
+    register_service('TCC-API', tcc_api)
     if not wait_http('http://localhost:3001/health', 60):
         print('[ERROR] TCC API health check failed')
         kill_tree(tcc_api)
@@ -185,7 +249,7 @@ def main():
             'MONGODB_URI': 'mongodb://localhost:27017/parking_admin',
         }
     )
-    services.append(admin_api)
+    register_service('ADMIN-API', admin_api)
     if not wait_http('http://localhost:5001/api/health', 60):
         print('[ERROR] Admin API health check failed')
         kill_tree(admin_api)
@@ -195,7 +259,7 @@ def main():
 
     print('[BOOT] Starting Admin UI (frontend)')
     admin_ui = start_process('ADMIN-UI', ['npm', 'run', 'dev'], os.path.join(ROOT, 'System', 'frontend'))
-    services.append(admin_ui)
+    register_service('ADMIN-UI', admin_ui)
     ui_ready = False
     for port in [5002, 5003, 5004, 5173]:
         if wait_port('127.0.0.1', port, 30):
@@ -214,25 +278,27 @@ def main():
             wechat = start_process('WECHAT-DEVTOOLS', cmd, ROOT, use_shell=False)
         else:
             wechat = start_process('WECHAT-DEVTOOLS', [wechat_cli, 'open', '--project', minipath], ROOT)
-        services.append(wechat)
+        register_service('WECHAT-DEVTOOLS', wechat)
         print('[READY] WeChat DevTools opened')
     else:
         print('[INFO] WeChat DevTools CLI not found. Open project manually:', minipath)
 
     try:
         while True:
-            for p in services:
+            for service in services:
+                p = service['process']
                 rc = p.poll()
                 if rc is not None and rc != 0:
-                    print('[ERROR] Service exited with code', rc)
-                    for q in services:
-                        kill_tree(q)
+                    print(f"[ERROR] Service {service['name']} exited with code {rc}")
+                    print('[ERROR] Startup script will stop the remaining services to avoid a half-started environment.')
+                    for other in services:
+                        kill_tree(other['process'])
                     sys.exit(1)
             time.sleep(2)
     except KeyboardInterrupt:
         print('\n[SHUTDOWN] Terminating services')
-        for p in services:
-            kill_tree(p)
+        for service in services:
+            kill_tree(service['process'])
         sys.exit(0)
 
 if __name__ == '__main__':

@@ -28,10 +28,13 @@ const adminFinanceRoutes = require('./routes/adminFinance')
 const adminSystemRoutes = require('./routes/adminSystem')
 const adminUserRoutes = require('./routes/adminUser')
 const adminRecordsRoutes = require('./routes/adminRecords')
+const adminNoticeRoutes = require('./routes/adminNotice')
+const adminEventsRoutes = require('./routes/adminEvents')
 // 微信小程序专用路由
 const miniprogramRoutes = require('./routes/miniprogram')
 const miniprogramPathRoutes = require('./routes/miniprogramPath')
 const miniprogramUserRoutes = require('./routes/miniprogramUser')
+const publicNoticeRoutes = require('./routes/publicNotice')
 // 新增小程序功能路由
 const userProfileRoutes = require('./routes/userProfile')
 const recommendationRoutes = require('./routes/recommendation')
@@ -44,6 +47,17 @@ const { notFound } = require('./middleware/notFound')
 
 // 创建Express应用
 const app = express()
+
+function matchesApiPrefix(req, prefixes) {
+  const candidates = [
+    req.originalUrl || '',
+    req.baseUrl || '',
+    req.path || '',
+    `${req.baseUrl || ''}${req.path || ''}`
+  ]
+
+  return prefixes.some(prefix => candidates.some(candidate => candidate.startsWith(prefix)))
+}
 
 // 安全中间件
 app.use(helmet())
@@ -71,11 +85,18 @@ const apiLimiter = rateLimit({
   skip: (req) => {
     // 微信小程序前台会高频轮询这些只读/轻量接口，
     // 同时 3001 兼容层也会转发到这里，不能再被管理后台限流误伤。
-    return req.path.startsWith('/api/spaces') ||
-      req.path.startsWith('/api/path') ||
-      req.path.startsWith('/api/navigation') ||
-      req.path.startsWith('/api/find-car') ||
-      req.path.startsWith('/api/recommendation');
+    return matchesApiPrefix(req, [
+      '/api/spaces',
+      '/spaces',
+      '/api/path',
+      '/path',
+      '/api/navigation',
+      '/navigation',
+      '/api/find-car',
+      '/find-car',
+      '/api/recommendation',
+      '/recommendation'
+    ]);
   }
 })
 
@@ -117,10 +138,13 @@ app.use('/api/admin/finance', adminFinanceRoutes)
 app.use('/api/admin/system', adminSystemRoutes)
 app.use('/api/admin/users', adminUserRoutes)
 app.use('/api/admin/records', adminRecordsRoutes)
+app.use('/api/admin/system/notices', adminNoticeRoutes)
+app.use('/api/admin/events', adminEventsRoutes)
 // 微信小程序专用路由
 app.use('/api/spaces', miniprogramRoutes)
 app.use('/api/path', miniprogramPathRoutes)
 app.use('/api/users', miniprogramUserRoutes)
+app.use('/api/notices', publicNoticeRoutes)
 // 新增小程序功能路由
 app.use('/api/user', userProfileRoutes)
 app.use('/api/recommendation', recommendationRoutes)

@@ -39,22 +39,10 @@ const routes = [
         meta: { title: '车位状态', icon: 'Monitor' }
       },
       {
-        path: 'records',
-        name: 'ParkingRecords',
-        component: () => import('@/views/parking/records.vue'),
-        meta: { title: '停车记录', icon: 'Document' }
-      },
-      {
         path: 'fees',
         name: 'ParkingFees',
         component: () => import('@/views/parking/fees.vue'),
         meta: { title: '收费标准', icon: 'Money' }
-      },
-      {
-        path: 'statistics',
-        name: 'ParkingStatistics',
-        component: () => import('@/views/parking/statistics.vue'),
-        meta: { title: '停车统计', icon: 'DataAnalysis' }
       }
     ]
   },

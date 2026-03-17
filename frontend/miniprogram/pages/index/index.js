@@ -1,13 +1,15 @@
+const defaultNotices = [
+  "欢迎使用智能停车场系统",
+  "请遵守停车场相关规定",
+  "如有问题请联系管理员"
+];
+
 Page({
   data: {
     freeSpaces: 0,
     totalSpaces: 100,
     parkingName: "智能停车场",
-    notices: [
-      "欢迎使用智能停车场系统",
-      "请遵守停车场相关规定",
-      "如有问题请联系管理员"
-    ]
+    notices: defaultNotices
   },
 
   // 定时刷新定时器
@@ -16,6 +18,7 @@ Page({
   onLoad() {
     // 页面加载时获取数据
     this.getSpaceInfo();
+    this.getNoticeList();
     
     // 启动定时刷新（每30秒自动刷新一次）
     this.startAutoRefresh();
@@ -29,6 +32,7 @@ Page({
   onShow() {
     // 页面显示时更新数据
     this.getSpaceInfo();
+    this.getNoticeList();
     
     // 确保定时器在运行
     if (!this.refreshTimer) {
@@ -45,6 +49,7 @@ Page({
   onPullDownRefresh() {
     console.log('[微信小程序] 下拉刷新触发');
     this.getSpaceInfo(true); // 传入true表示是手动刷新
+    this.getNoticeList();
   },
 
   // 启动自动刷新
@@ -57,6 +62,40 @@ Page({
       console.log('[微信小程序] 定时刷新触发');
       this.getSpaceInfo();
     }, 15000); // 15秒 = 15000毫秒（推荐值，可根据需要调整）
+  },
+
+  getNoticeList() {
+    const app = getApp();
+
+    wx.request({
+      url: `${app.globalData.baseUrl}/system/notices?limit=5&_t=${Date.now()}`,
+      method: 'GET',
+      success: (res) => {
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          const notices = res.data.data.map(item => {
+            if (item.title && item.content) {
+              return `${item.title}：${item.content}`;
+            }
+            return item.content || item.title;
+          }).filter(Boolean);
+
+          this.setData({
+            notices: notices.length ? notices : defaultNotices
+          });
+          return;
+        }
+
+        this.setData({
+          notices: defaultNotices
+        });
+      },
+      fail: (error) => {
+        console.error('获取公告失败:', error);
+        this.setData({
+          notices: defaultNotices
+        });
+      }
+    });
   },
 
   // 停止自动刷新

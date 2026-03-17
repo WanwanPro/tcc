@@ -16,6 +16,42 @@
       </div>
     </div>
 
+    <el-dialog
+      v-model="noticeDialogVisible"
+      title="发送系统通知"
+      width="520px"
+      destroy-on-close
+    >
+      <el-form ref="noticeFormRef" :model="noticeForm" :rules="noticeRules" label-width="88px">
+        <el-form-item label="通知标题" prop="title">
+          <el-input v-model="noticeForm.title" maxlength="100" show-word-limit placeholder="请输入公告标题" />
+        </el-form-item>
+        <el-form-item label="通知内容" prop="content">
+          <el-input
+            v-model="noticeForm.content"
+            type="textarea"
+            :rows="5"
+            maxlength="500"
+            show-word-limit
+            placeholder="请输入要同步到小程序公告栏的内容"
+          />
+        </el-form-item>
+        <el-form-item label="优先级" prop="priority">
+          <el-select v-model="noticeForm.priority" style="width: 100%">
+            <el-option label="普通" value="normal" />
+            <el-option label="重要" value="high" />
+            <el-option label="低" value="low" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span>
+          <el-button @click="noticeDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="noticeSubmitting" @click="submitSystemNotice">发送并同步</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 数据概览卡片 -->
     <el-row :gutter="20" class="dashboard-overview">
       <el-col :xs="24" :sm="12" :md="6" v-for="(item, index) in overviewData" :key="index">
@@ -128,7 +164,7 @@ import {
   Download,
   Bell
 } from '@element-plus/icons-vue'
-import { getDashboardData, startSpaceSimulation, stopSpaceSimulation, resetParkingSpaces, startDataSimulation, stopDataSimulation as stopSim } from '@/api'
+import { getDashboardData, startSpaceSimulation, stopSpaceSimulation, resetParkingSpaces, startDataSimulation, stopDataSimulation as stopSim, publishSystemNotice } from '@/api'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 
 // 注册必要的组件
@@ -184,6 +220,18 @@ const refreshTimer = ref(null)
 
 // 收入趋势数据
 const revenueTrendData = ref([])
+const noticeDialogVisible = ref(false)
+const noticeSubmitting = ref(false)
+const noticeFormRef = ref(null)
+const noticeForm = reactive({
+  title: '',
+  content: '',
+  priority: 'normal'
+})
+const noticeRules = {
+  title: [{ required: true, message: '请输入通知标题', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入通知内容', trigger: 'blur' }]
+}
 
 // 车位使用分布数据
 const distributionData = ref([
@@ -543,7 +591,43 @@ const exportData = () => {
 
 // 发送系统通知
 const sendNotification = () => {
-  ElMessage.success('系统通知功能开发中')
+  noticeForm.title = ''
+  noticeForm.content = ''
+  noticeForm.priority = 'normal'
+  noticeDialogVisible.value = true
+}
+
+const submitSystemNotice = async () => {
+  if (!noticeFormRef.value) {
+    return
+  }
+
+  await noticeFormRef.value.validate(async (valid) => {
+    if (!valid) {
+      return
+    }
+
+    noticeSubmitting.value = true
+    try {
+      const response = await publishSystemNotice({
+        title: noticeForm.title,
+        content: noticeForm.content,
+        priority: noticeForm.priority
+      })
+
+      if (response.success) {
+        ElMessage.success(response.message || '系统通知已发送')
+        noticeDialogVisible.value = false
+      } else {
+        ElMessage.error(response.message || '系统通知发送失败')
+      }
+    } catch (error) {
+      console.error('发送系统通知失败:', error)
+      ElMessage.error(error.message || '系统通知发送失败')
+    } finally {
+      noticeSubmitting.value = false
+    }
+  })
 }
 
 onMounted(() => {

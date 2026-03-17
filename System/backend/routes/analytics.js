@@ -695,17 +695,15 @@ router.get('/dashboard/stats', async (req, res) => {
     // 获取停车位总数
     const totalSpaces = await ParkingSpace.countDocuments(lotCondition)
     
-    // 获取已占用停车位数量（包括occupied、reserved、maintenance）
+    // 与“车位状态”页保持一致：只有 occupied 计入已占用
     const occupiedSpaces = await ParkingSpace.countDocuments({ 
       ...lotCondition,
-      status: { $in: ['occupied', 'reserved', 'maintenance'] }
+      status: 'occupied'
     })
     
-    // 获取可用停车位数量（只有available状态）
-    const availableSpaces = await ParkingSpace.countDocuments({
-      ...lotCondition,
-      status: 'available'
-    })
+    // 其余状态统一视为非空闲，空闲数直接由总数减已占用得到，
+    // 保证和车位列表页展示口径一致。
+    const availableSpaces = Math.max(totalSpaces - occupiedSpaces, 0)
     
     // 双重验证：availableSpaces + occupiedSpaces 应该等于 totalSpaces
     console.log('[Dashboard Stats] 车位统计:', {

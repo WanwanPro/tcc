@@ -58,6 +58,14 @@ export function stopDataSimulation() {
   })
 }
 
+export function publishSystemNotice(data) {
+  return request({
+    url: '/admin/system/notices',
+    method: 'post',
+    data
+  })
+}
+
 // 批量更新车位状态
 export function batchUpdateSpaceStatus(data) {
   return request({
