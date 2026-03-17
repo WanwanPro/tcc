@@ -73,8 +73,8 @@ const usernameRef = ref(null)
 const passwordRef = ref(null)
 
 const loginForm = reactive({
-  username: 'admin',
-  password: '123456'
+  username: '',
+  password: ''
 })
 
 const loginRules = reactive({
@@ -95,13 +95,13 @@ const handleLogin = () => {
         
         // 执行登录
         const loginResponse = await userStore.login(loginForm)
+        const userData = loginResponse.user
         
         // 如果登录响应中已包含用户信息，直接使用，无需再次请求
-        if (loginResponse.data && loginResponse.data.user) {
-          const userData = loginResponse.data.user
+        if (userData) {
           userStore.name = userData.name || ''
           userStore.avatar = userData.avatar || ''
-          userStore.roles = [userData.role] || []
+          userStore.roles = userData.role ? [userData.role] : []
           userStore.permissions = userData.permissions || []
           
           ElMessage.success('登录成功')

@@ -310,14 +310,14 @@ export default {
           feeStandards.value = safeGet(response, 'data.records', [])
           total.value = safeGet(response, 'data.total', 0)
         } else {
-          ElMessage.error(safeGet(response, 'message', '获取收费标准列表失败'))
+          ElMessage.error(safeGet(response, 'message', '收费功待接入API'))
           // 如果API失败，使用模拟数据
           feeStandards.value = mockData
           total.value = mockData.length
         }
       } catch (error) {
         console.error('获取收费标准列表失败:', error)
-        ElMessage.error('获取收费标准列表失败，请检查网络连接')
+        ElMessage.error('收费功待接入API')
         // 如果API失败，使用模拟数据
         feeStandards.value = mockData
         total.value = mockData.length

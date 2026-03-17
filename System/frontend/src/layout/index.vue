@@ -99,7 +99,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import Breadcrumb from './components/Breadcrumb.vue'
 
 const route = useRoute()
@@ -129,6 +129,11 @@ const menuRoutes = computed(() => {
 
 // 处理菜单点击
 const handleMenuClick = (path) => {
+  if (path.startsWith('/finance/')) {
+    ElMessage.warning('财务管理功能待接入财务APi')
+    return
+  }
+
   if (route.path !== path) {
     router.push(path).catch(err => {
       console.error('路由跳转错误:', err)

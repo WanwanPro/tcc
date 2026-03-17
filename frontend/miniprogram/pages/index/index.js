@@ -158,13 +158,6 @@ Page({
     });
   },
 
-  // 跳转到地图页面
-  goToMap() {
-    wx.switchTab({
-      url: '/pages/map/map'
-    });
-  },
-
   // 跳转到导航页面
   goToNavigation() {
     wx.switchTab({

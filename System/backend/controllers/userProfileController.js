@@ -1,11 +1,80 @@
+const axios = require('axios')
+const jwt = require('jsonwebtoken')
 const { MiniProgramUser, Vehicle, ParkingRecord, FavoriteParkingLot, UserFeedback } = require('../models')
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h'
+const WECHAT_APP_ID = process.env.WECHAT_APP_ID
+const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET
+
+const signMiniProgramToken = (user) => jwt.sign(
+  {
+    id: user._id,
+    type: 'miniprogram',
+    openId: user.openId,
+    isGuest: !!user.isGuest
+  },
+  JWT_SECRET,
+  { expiresIn: JWT_EXPIRES_IN }
+)
+
+const formatUserInfo = (user) => ({
+  id: user._id,
+  openId: user.openId,
+  nickName: user.nickName || '微信用户',
+  avatarUrl: user.avatarUrl || '',
+  gender: user.gender,
+  phone: user.phone,
+  isGuest: !!user.isGuest,
+  totalParkingCount: user.totalParkingCount,
+  statistics: user.statistics,
+  lastLoginTime: user.lastLoginTime,
+  createdAt: user.createdAt
+})
+
+const resolveOpenId = async ({ code, devOpenId }) => {
+  if (WECHAT_APP_ID && WECHAT_APP_SECRET) {
+    const response = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
+      params: {
+        appid: WECHAT_APP_ID,
+        secret: WECHAT_APP_SECRET,
+        js_code: code,
+        grant_type: 'authorization_code'
+      },
+      timeout: 5000
+    })
+
+    if (!response.data || response.data.errcode || !response.data.openid) {
+      const message = response.data?.errmsg || '微信登录失败'
+      const error = new Error(message)
+      error.statusCode = 400
+      throw error
+    }
+
+    return {
+      openId: response.data.openid,
+      unionId: response.data.unionid || ''
+    }
+  }
+
+  if (!devOpenId) {
+    const error = new Error('开发环境缺少devOpenId，无法建立稳定用户身份')
+    error.statusCode = 400
+    throw error
+  }
+
+  return {
+    openId: `dev_${devOpenId}`,
+    unionId: ''
+  }
+}
 
 /**
  * 微信小程序用户登录/注册
  */
 const wxLogin = async (req, res) => {
   try {
-    const { code, userInfo } = req.body
+    const { code, userInfo, devOpenId } = req.body
 
     if (!code) {
       return res.status(400).json({
@@ -14,18 +83,16 @@ const wxLogin = async (req, res) => {
       })
     }
 
-    // 这里应该调用微信API获取openid和session_key
-    // 简化处理，假设已经获取到openid
-    // 实际项目中需要使用微信小程序登录API
-    const mockOpenId = `mock_openid_${Date.now()}`
+    const { openId, unionId } = await resolveOpenId({ code, devOpenId })
     
     // 查找或创建用户
-    let user = await MiniProgramUser.findOne({ openId: mockOpenId })
+    let user = await MiniProgramUser.findOne({ openId })
+    const isNewUser = !user
     
     if (!user) {
-      // 创建新用户
       user = new MiniProgramUser({
-        openId: mockOpenId,
+        openId,
+        unionId,
         nickName: userInfo?.nickName || '微信用户',
         avatarUrl: userInfo?.avatarUrl || '',
         gender: userInfo?.gender || 0,
@@ -36,42 +103,38 @@ const wxLogin = async (req, res) => {
       
       await user.save()
     } else {
-      // 更新用户信息和登录统计
       if (userInfo) {
         user.nickName = userInfo.nickName || user.nickName
         user.avatarUrl = userInfo.avatarUrl || user.avatarUrl
         user.gender = userInfo.gender !== undefined ? userInfo.gender : user.gender
       }
+
+      if (unionId) {
+        user.unionId = unionId
+      }
       
       user.lastLoginTime = new Date()
       user.loginCount += 1
+      user.isGuest = false
       await user.save()
     }
 
-    // 生成用户token（简化处理）
-    const token = `token_${user._id}_${Date.now()}`
+    const token = signMiniProgramToken(user)
 
     res.status(200).json({
       success: true,
-      message: '登录成功',
+      message: isNewUser ? '注册并登录成功' : '登录成功',
       data: {
         token,
-        userInfo: {
-          id: user._id,
-          nickName: user.nickName,
-          avatarUrl: user.avatarUrl,
-          gender: user.gender,
-          phone: user.phone,
-          totalParkingCount: user.totalParkingCount,
-          statistics: user.statistics
-        }
+        isNewUser,
+        userInfo: formatUserInfo(user)
       }
     })
   } catch (error) {
     console.error('微信登录失败:', error)
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: '服务器错误',
+      message: error.statusCode ? error.message : '服务器错误',
       error: error.message
     })
   }
@@ -93,23 +156,35 @@ const guestLogin = async (req, res) => {
     
     await guestUser.save()
     
-    // 生成临时token
-    const token = `guest_token_${guestUser._id}_${Date.now()}`
+    const token = signMiniProgramToken(guestUser)
 
     res.status(200).json({
       success: true,
       message: '游客模式登录成功',
       data: {
         token,
-        userInfo: {
-          id: guestUser._id,
-          nickName: guestUser.nickName,
-          isGuest: true
-        }
+        userInfo: formatUserInfo(guestUser)
       }
     })
   } catch (error) {
     console.error('游客登录失败:', error)
+    res.status(500).json({
+      success: false,
+      message: '服务器错误',
+      error: error.message
+    })
+  }
+}
+
+const getCurrentUser = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: '获取当前用户成功',
+      data: formatUserInfo(req.miniprogramUser)
+    })
+  } catch (error) {
+    console.error('获取当前用户失败:', error)
     res.status(500).json({
       success: false,
       message: '服务器错误',
@@ -578,6 +653,7 @@ const submitUserFeedback = async (req, res) => {
 module.exports = {
   wxLogin,
   guestLogin,
+  getCurrentUser,
   getUserInfo,
   updateUserInfo,
   getUserVehicles,

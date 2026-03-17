@@ -16,10 +16,6 @@
   </view>
 
   <view class="actions">
-    <button class="action-btn" bindtap="goToMap">
-      <image class="btn-icon" src="/assets/icons/map.png"></image>
-      <text>查看地图</text>
-    </button>
     <button class="action-btn" bindtap="goToNavigation">
       <image class="btn-icon" src="/assets/icons/navigation.png"></image>
       <text>开始导航</text>

@@ -21,8 +21,8 @@ export const useUserStore = defineStore('user', {
     async login(loginForm) {
       try {
         const response = await login(loginForm)
-        // 处理不同的响应格式
-        const token = response.data?.token || response.token
+        const payload = response.data || response
+        const token = payload.token
         if (!token) {
           throw new Error('登录响应中缺少token')
         }
@@ -30,7 +30,7 @@ export const useUserStore = defineStore('user', {
         this.token = token
         localStorage.setItem('token', token)
         console.log('[UserStore] Token已保存:', token.substring(0, 20) + '...')
-        return response // 返回完整的响应，以便登录组件可以使用其中的用户信息
+        return payload
       } catch (error) {
         // 清除可能已存储的无效token
         this.token = ''
@@ -43,13 +43,12 @@ export const useUserStore = defineStore('user', {
     async getInfo() {
       try {
         const response = await getInfo()
-        // 处理不同的响应格式
         const userData = response.data || response
-        const { name, avatar, roles, permissions } = userData
+        const { name, avatar, role, roles, permissions } = userData
         
         this.name = name || ''
         this.avatar = avatar || ''
-        this.roles = roles || []
+        this.roles = Array.isArray(roles) && roles.length ? roles : (role ? [role] : [])
         this.permissions = permissions || []
         
         return userData

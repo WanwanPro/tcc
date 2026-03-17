@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 获取系统设置
 export function getSystemSettings() {
   return request({
-    url: '/api/admin/system/settings',
+    url: '/admin/system/settings',
     method: 'get'
   })
 }
@@ -11,7 +11,7 @@ export function getSystemSettings() {
 // 更新系统设置
 export function updateSystemSettings(data) {
   return request({
-    url: '/api/admin/system/settings',
+    url: '/admin/system/settings',
     method: 'put',
     data
   })
@@ -20,7 +20,7 @@ export function updateSystemSettings(data) {
 // 获取基础设置
 export function getBasicSettings() {
   return request({
-    url: '/api/admin/system/settings/basic',
+    url: '/admin/system/settings/basic',
     method: 'get'
   })
 }
@@ -28,7 +28,7 @@ export function getBasicSettings() {
 // 更新基础设置
 export function updateBasicSettings(data) {
   return request({
-    url: '/api/admin/system/settings/basic',
+    url: '/admin/system/settings/basic',
     method: 'put',
     data
   })
@@ -37,7 +37,7 @@ export function updateBasicSettings(data) {
 // 获取停车设置
 export function getParkingSettings() {
   return request({
-    url: '/api/admin/system/settings/parking',
+    url: '/admin/system/settings/parking',
     method: 'get'
   })
 }
@@ -45,7 +45,7 @@ export function getParkingSettings() {
 // 更新停车设置
 export function updateParkingSettings(data) {
   return request({
-    url: '/api/admin/system/settings/parking',
+    url: '/admin/system/settings/parking',
     method: 'put',
     data
   })
@@ -54,7 +54,7 @@ export function updateParkingSettings(data) {
 // 获取支付设置
 export function getPaymentSettings() {
   return request({
-    url: '/api/admin/system/settings/payment',
+    url: '/admin/system/settings/payment',
     method: 'get'
   })
 }
@@ -62,7 +62,7 @@ export function getPaymentSettings() {
 // 更新支付设置
 export function updatePaymentSettings(data) {
   return request({
-    url: '/api/admin/system/settings/payment',
+    url: '/admin/system/settings/payment',
     method: 'put',
     data
   })
@@ -71,7 +71,7 @@ export function updatePaymentSettings(data) {
 // 获取通知设置
 export function getNotificationSettings() {
   return request({
-    url: '/api/admin/system/settings/notification',
+    url: '/admin/system/settings/notification',
     method: 'get'
   })
 }
@@ -79,7 +79,7 @@ export function getNotificationSettings() {
 // 更新通知设置
 export function updateNotificationSettings(data) {
   return request({
-    url: '/api/admin/system/settings/notification',
+    url: '/admin/system/settings/notification',
     method: 'put',
     data
   })
@@ -88,7 +88,7 @@ export function updateNotificationSettings(data) {
 // 获取安全设置
 export function getSecuritySettings() {
   return request({
-    url: '/api/admin/system/settings/security',
+    url: '/admin/system/settings/security',
     method: 'get'
   })
 }
@@ -96,7 +96,7 @@ export function getSecuritySettings() {
 // 更新安全设置
 export function updateSecuritySettings(data) {
   return request({
-    url: '/api/admin/system/settings/security',
+    url: '/admin/system/settings/security',
     method: 'put',
     data
   })
@@ -105,7 +105,7 @@ export function updateSecuritySettings(data) {
 // 测试邮件配置
 export function testEmailConfig(data) {
   return request({
-    url: '/api/admin/system/settings/test-email',
+    url: '/admin/system/settings/test-email',
     method: 'post',
     data
   })
@@ -114,7 +114,7 @@ export function testEmailConfig(data) {
 // 测试短信配置
 export function testSmsConfig(data) {
   return request({
-    url: '/api/admin/system/settings/test-sms',
+    url: '/admin/system/settings/test-sms',
     method: 'post',
     data
   })
@@ -123,7 +123,7 @@ export function testSmsConfig(data) {
 // 重置系统设置
 export function resetSystemSettings() {
   return request({
-    url: '/api/admin/system/settings/reset',
+    url: '/admin/system/settings/reset',
     method: 'post'
   })
 }
@@ -131,7 +131,7 @@ export function resetSystemSettings() {
 // 导出系统设置
 export function exportSystemSettings() {
   return request({
-    url: '/api/admin/system/settings/export',
+    url: '/admin/system/settings/export',
     method: 'get',
     responseType: 'blob'
   })
@@ -143,7 +143,7 @@ export function importSystemSettings(file) {
   formData.append('file', file)
   
   return request({
-    url: '/api/admin/system/settings/import',
+    url: '/admin/system/settings/import',
     method: 'post',
     data: formData,
     headers: {
@@ -155,7 +155,7 @@ export function importSystemSettings(file) {
 // 获取系统信息
 export function getSystemInfo() {
   return request({
-    url: '/api/admin/system/info',
+    url: '/admin/system/info',
     method: 'get'
   })
 }
@@ -163,7 +163,7 @@ export function getSystemInfo() {
 // 获取系统日志
 export function getSystemLogs(params) {
   return request({
-    url: '/api/admin/system/logs',
+    url: '/admin/system/logs',
     method: 'get',
     params
   })
@@ -172,7 +172,7 @@ export function getSystemLogs(params) {
 // 清空系统日志
 export function clearSystemLogs() {
   return request({
-    url: '/api/admin/system/logs',
+    url: '/admin/system/logs',
     method: 'delete'
   })
 }
@@ -180,7 +180,7 @@ export function clearSystemLogs() {
 // 备份系统数据
 export function backupSystem() {
   return request({
-    url: '/api/admin/system/backup',
+    url: '/admin/system/backup',
     method: 'post',
     responseType: 'blob'
   })
@@ -192,7 +192,7 @@ export function restoreSystem(file) {
   formData.append('file', file)
   
   return request({
-    url: '/api/admin/system/restore',
+    url: '/admin/system/restore',
     method: 'post',
     data: formData,
     headers: {

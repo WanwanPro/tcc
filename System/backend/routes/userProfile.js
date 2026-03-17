@@ -1,8 +1,10 @@
 const express = require('express')
 const router = express.Router()
+const { miniprogramAuth } = require('../middleware/miniprogramAuth')
 const {
   wxLogin,
   guestLogin,
+  getCurrentUser,
   getUserInfo,
   updateUserInfo,
   getUserVehicles,
@@ -18,6 +20,7 @@ const {
 // 用户登录相关
 router.post('/login', wxLogin)
 router.post('/guest', guestLogin)
+router.get('/me', miniprogramAuth, getCurrentUser)
 router.get('/:userId', getUserInfo)
 router.put('/:userId', updateUserInfo)
 

@@ -9,6 +9,7 @@ const userRoutes = require('./routes/userRoutes')
 const parkingRoutes = require('./routes/spaceRoutes')
 const pathRoutes = require('./routes/pathRoutes')
 const imageRoutes = require('./routes/imageRoutes')
+const systemRoutes = require('./routes/systemRoutes')
 
 // 导入中间件
 // const { errorHandler } = require('./middleware/errorHandler')
@@ -33,9 +34,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 // API路由
 app.use('/api/users', userRoutes)
+app.use('/api/user', userRoutes)
 app.use('/api/spaces', parkingRoutes)
 app.use('/api/paths', pathRoutes)
 app.use('/api/images', imageRoutes)
+app.use('/api/system', systemRoutes)
 
 // 健康检查
 app.get('/health', (req, res) => {

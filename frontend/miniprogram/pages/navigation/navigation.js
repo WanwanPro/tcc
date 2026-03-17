@@ -24,6 +24,8 @@ const HUD_TOP_CLIP_RPX = 400;
 const HUD_BOTTOM_CLIP_RPX = 250;
 const WORLD_ROTATION = -Math.PI / 2;
 const CAMERA_HORIZONTAL_OFFSET = -56;
+const CAMERA_MIN_ZOOM = 0.7;
+const CAMERA_MAX_ZOOM = 2.2;
 
 // 全局变量 (页面级)
 let car, pathfindingManager, currentPath = [];
@@ -34,6 +36,7 @@ let viewMode = 'FOLLOW';
 let cameraAngle = 0;
 let cameraPos = { x: 0, y: 0 };
 let cameraHeading = 0;
+let cameraZoom = 1;
 let arrivalHandled = false;
 let isDragging = false;
 let lastMouse = { x: 0, y: 0 };
@@ -42,6 +45,8 @@ let currentTarget = null;
 let carStartGrid = { x: 0, y: 0 };
 let currentStats = {};
 let touchSession = null;
+let pinchSession = null;
+let previewPath = [];
 
 /**
  * 2. 车辆类定义
@@ -219,7 +224,7 @@ Page({
 
       // 重新计算路径
       if (currentTarget && !car.isMoving) {
-        this.calculateAndStartPath();
+        this.previewNavigationPath();
       }
 
       wx.showToast({
@@ -408,10 +413,13 @@ Page({
   initGame() {
     mapGrid = this.generateGrid();
     car = new Car(carStartGrid.x, carStartGrid.y);
+    currentPath = [];
+    previewPath = [];
 
     cameraPos = { x: car.x, y: car.y };
     cameraAngle = car.angle;
     cameraHeading = car.angle;
+    cameraZoom = 1;
     arrivalHandled = false;
 
     this.fetchParkingStatus();
@@ -454,7 +462,7 @@ Page({
       destinationLabel: id ? `车位 ${id}` : '未选择车位'
     });
 
-    this.calculateAndStartPath();
+    this.previewNavigationPath();
   },
 
   fetchParkingStatus() {
@@ -479,7 +487,7 @@ Page({
     });
   },
 
-  calculateAndStartPath() {
+  calculatePath(shouldStart = false) {
     if (!currentTarget) return;
 
     const startGrid = {
@@ -508,28 +516,44 @@ Page({
     });
 
     if (path.length > 0) {
-      currentPath = path;
-      car.setPath(path);
-      arrivalHandled = false;
-      this.setData({ btnText: "行驶中..." });
-      this.resetCamera();
+      previewPath = path;
+
+      if (shouldStart) {
+        currentPath = path;
+        car.setPath(path);
+        arrivalHandled = false;
+        this.setData({ btnText: "行驶中..." });
+        this.resetCamera();
+      } else {
+        currentPath = [];
+        car.isMoving = false;
+        this.setData({ btnText: "开始导航" });
+      }
     } else {
+      previewPath = [];
+      currentPath = [];
       this.setData({ btnText: "无法到达" });
     }
   },
 
+  previewNavigationPath() {
+    this.calculatePath(false);
+  },
+
   startNavigation() {
     if (car.isMoving && currentPath.length > 0) return;
-    this.calculateAndStartPath();
+    this.calculatePath(true);
   },
 
   resetSimulation() {
     car = new Car(carStartGrid.x, carStartGrid.y);
     currentPath = [];
+    previewPath = [];
     viewMode = 'FOLLOW';
     manualViewOffset = 0;
     cameraAngle = 0;
     cameraHeading = 0;
+    cameraZoom = 1;
     arrivalHandled = false;
     this.setData({
       showRecenter: false,
@@ -551,6 +575,7 @@ Page({
     manualViewOffset = 0;
     cameraAngle = 0;
     cameraHeading = car ? car.angle : 0;
+    cameraZoom = 1;
     this.setData({ showRecenter: false });
   },
 
@@ -582,14 +607,21 @@ Page({
 
     const mapWidth = mapGrid[0].length * CELL_SIZE;
     const mapHeight = mapGrid.length * CELL_SIZE;
+    const zoom = cameraZoom || 1;
+    const visibleWidth = logicWidth / zoom;
+    const visibleHeight = viewport.height / zoom;
+    const visibleTopOffset = (anchorY - viewport.top) / zoom;
+    const visibleBottomOffset = (viewport.bottom - anchorY) / zoom;
+    const visibleLeftOffset = anchorX / zoom;
+    const visibleRightOffset = (logicWidth - anchorX) / zoom;
 
     // After a -90deg world rotation, screen X corresponds to world Y,
     // and screen Y corresponds to world X. Clamp camera so the clipped
     // viewport always remains inside the map.
-    const minCameraX = viewport.bottom - anchorY;
-    const maxCameraX = mapWidth - (anchorY - viewport.top);
-    const minCameraY = anchorX;
-    const maxCameraY = mapHeight - (logicWidth - anchorX);
+    const minCameraX = visibleBottomOffset;
+    const maxCameraX = mapWidth - visibleTopOffset;
+    const minCameraY = visibleLeftOffset;
+    const maxCameraY = mapHeight - visibleRightOffset;
 
     cameraPos.x = Math.min(Math.max(cameraPos.x, minCameraX), Math.max(minCameraX, maxCameraX));
     cameraPos.y = Math.min(Math.max(cameraPos.y, minCameraY), Math.max(minCameraY, maxCameraY));
@@ -621,13 +653,15 @@ Page({
     cameraHeading += headingDelta * CAMERA_HEADING_LERP;
     cameraAngle = cameraHeading;
 
-    const parked = !car.isMoving && this.data.btnText === '导航结束';
-    const followDistance = parked ? CAMERA_PARK_DISTANCE : CAMERA_FOLLOW_DISTANCE;
-    const followLerp = parked ? CAMERA_PARK_LERP : CAMERA_FOLLOW_LERP;
-    const followTargetX = car.x + Math.cos(cameraAngle) * followDistance;
-    const followTargetY = car.y + Math.sin(cameraAngle) * followDistance;
-    cameraPos.x += (followTargetX - cameraPos.x) * followLerp;
-    cameraPos.y += (followTargetY - cameraPos.y) * followLerp;
+    if (viewMode === 'FOLLOW') {
+      const parked = !car.isMoving && this.data.btnText === '导航结束';
+      const followDistance = parked ? CAMERA_PARK_DISTANCE : CAMERA_FOLLOW_DISTANCE;
+      const followLerp = parked ? CAMERA_PARK_LERP : CAMERA_FOLLOW_LERP;
+      const followTargetX = car.x + Math.cos(cameraAngle) * followDistance;
+      const followTargetY = car.y + Math.sin(cameraAngle) * followDistance;
+      cameraPos.x += (followTargetX - cameraPos.x) * followLerp;
+      cameraPos.y += (followTargetY - cameraPos.y) * followLerp;
+    }
     this.clampCameraToMap(anchorX, anchorY, logicWidth, viewport);
     this.updateDirectionArrow();
 
@@ -636,6 +670,7 @@ Page({
     ctx.rect(0, viewport.top, logicWidth, viewport.height);
     ctx.clip();
     ctx.translate(anchorX, anchorY);
+    ctx.scale(cameraZoom, cameraZoom);
     ctx.rotate(WORLD_ROTATION);
     ctx.translate(-cameraPos.x, -cameraPos.y);
 
@@ -847,7 +882,8 @@ Page({
   },
 
   drawPath(ctx) {
-    if (currentPath.length < 2) return;
+    const pathToDraw = currentPath.length >= 2 ? currentPath : previewPath;
+    if (pathToDraw.length < 2) return;
 
     ctx.save();
     ctx.beginPath();
@@ -856,14 +892,14 @@ Page({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.moveTo(car.x, car.y);
-    let startIndex = car.targetIndex;
+    let startIndex = currentPath.length >= 2 ? car.targetIndex : 1;
 
-    if (startIndex < currentPath.length) {
-      const next = currentPath[startIndex];
+    if (startIndex < pathToDraw.length) {
+      const next = pathToDraw[startIndex];
       ctx.lineTo(next.x * CELL_SIZE + CELL_SIZE / 2, next.y * CELL_SIZE + CELL_SIZE / 2);
 
-      for (let i = startIndex + 1; i < currentPath.length; i++) {
-        const p = currentPath[i];
+      for (let i = startIndex + 1; i < pathToDraw.length; i++) {
+        const p = pathToDraw[i];
         ctx.lineTo(p.x * CELL_SIZE + CELL_SIZE / 2, p.y * CELL_SIZE + CELL_SIZE / 2);
       }
     }
@@ -880,14 +916,14 @@ Page({
     ctx.lineDashOffset = -offset;
 
     ctx.moveTo(car.x, car.y);
-    startIndex = car.targetIndex;
+    startIndex = currentPath.length >= 2 ? car.targetIndex : 1;
 
-    if (startIndex < currentPath.length) {
-      const next = currentPath[startIndex];
+    if (startIndex < pathToDraw.length) {
+      const next = pathToDraw[startIndex];
       ctx.lineTo(next.x * CELL_SIZE + CELL_SIZE / 2, next.y * CELL_SIZE + CELL_SIZE / 2);
 
-      for (let i = startIndex + 1; i < currentPath.length; i++) {
-        const p = currentPath[i];
+      for (let i = startIndex + 1; i < pathToDraw.length; i++) {
+        const p = pathToDraw[i];
         ctx.lineTo(p.x * CELL_SIZE + CELL_SIZE / 2, p.y * CELL_SIZE + CELL_SIZE / 2);
       }
     }
@@ -920,6 +956,18 @@ Page({
 
   // === 触摸事件 ===
   onTouchStart(e) {
+    if (e.touches.length === 2) {
+      const [touchA, touchB] = e.touches;
+      const distance = Math.hypot(touchB.x - touchA.x, touchB.y - touchA.y);
+      pinchSession = {
+        startDistance: distance,
+        startZoom: cameraZoom
+      };
+      touchSession = null;
+      isDragging = false;
+      return;
+    }
+
     const touch = e.touches[0];
     isDragging = true;
     lastMouse = { x: touch.x, y: touch.y };
@@ -931,6 +979,23 @@ Page({
   },
 
   onTouchMove(e) {
+    if (e.touches.length === 2) {
+      const [touchA, touchB] = e.touches;
+      const distance = Math.hypot(touchB.x - touchA.x, touchB.y - touchA.y);
+      if (pinchSession && pinchSession.startDistance > 0) {
+        const nextZoom = pinchSession.startZoom * (distance / pinchSession.startDistance);
+        cameraZoom = Math.min(CAMERA_MAX_ZOOM, Math.max(CAMERA_MIN_ZOOM, nextZoom));
+
+        const logicWidth = this.canvas.width / this.data.dpr;
+        const logicHeight = this.canvas.height / this.data.dpr;
+        const viewport = this.getCanvasViewport(logicWidth, logicHeight);
+        const anchorX = logicWidth / 2 + CAMERA_HORIZONTAL_OFFSET;
+        const anchorY = viewport.top + viewport.height * CAMERA_LOWER_THIRD_RATIO;
+        this.clampCameraToMap(anchorX, anchorY, logicWidth, viewport);
+      }
+      return;
+    }
+
     if (!isDragging) return;
     const touch = e.touches[0];
     const dx = touch.x - lastMouse.x;
@@ -944,12 +1009,30 @@ Page({
       }
     }
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-      // Disable manual camera dragging: the map stays fixed and only auto-follow is used.
-      return;
+      viewMode = 'FREE';
+      const invRotation = -WORLD_ROTATION;
+      const zoomFactor = cameraZoom || 1;
+      const adjustedDx = dx / zoomFactor;
+      const adjustedDy = dy / zoomFactor;
+      const worldDx = adjustedDx * Math.cos(invRotation) - adjustedDy * Math.sin(invRotation);
+      const worldDy = adjustedDx * Math.sin(invRotation) + adjustedDy * Math.cos(invRotation);
+      cameraPos.x -= worldDx;
+      cameraPos.y -= worldDy;
+
+      const logicWidth = this.canvas.width / this.data.dpr;
+      const logicHeight = this.canvas.height / this.data.dpr;
+      const viewport = this.getCanvasViewport(logicWidth, logicHeight);
+      const anchorX = logicWidth / 2 + CAMERA_HORIZONTAL_OFFSET;
+      const anchorY = viewport.top + viewport.height * CAMERA_LOWER_THIRD_RATIO;
+      this.clampCameraToMap(anchorX, anchorY, logicWidth, viewport);
     }
   },
 
   onTouchEnd() {
+    if (pinchSession) {
+      pinchSession = null;
+      return;
+    }
     if (touchSession && !touchSession.moved) {
       this.onCanvasTap({
         detail: {
@@ -986,9 +1069,12 @@ Page({
 
     const offsetX = touch.x - anchorX;
     const offsetY = touch.y - anchorY;
+    const zoomFactor = cameraZoom || 1;
+    const zoomedOffsetX = offsetX / zoomFactor;
+    const zoomedOffsetY = offsetY / zoomFactor;
     const invRotation = -WORLD_ROTATION;
-    const worldX = offsetX * Math.cos(invRotation) - offsetY * Math.sin(invRotation) + cameraPos.x;
-    const worldY = offsetX * Math.sin(invRotation) + offsetY * Math.cos(invRotation) + cameraPos.y;
+    const worldX = zoomedOffsetX * Math.cos(invRotation) - zoomedOffsetY * Math.sin(invRotation) + cameraPos.x;
+    const worldY = zoomedOffsetX * Math.sin(invRotation) + zoomedOffsetY * Math.cos(invRotation) + cameraPos.y;
 
     const gridX = Math.floor(worldX / CELL_SIZE);
     const gridY = Math.floor(worldY / CELL_SIZE);

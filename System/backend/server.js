@@ -68,6 +68,15 @@ const apiLimiter = rateLimit({
   message: 'Too many requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // 微信小程序前台会高频轮询这些只读/轻量接口，
+    // 同时 3001 兼容层也会转发到这里，不能再被管理后台限流误伤。
+    return req.path.startsWith('/api/spaces') ||
+      req.path.startsWith('/api/path') ||
+      req.path.startsWith('/api/navigation') ||
+      req.path.startsWith('/api/find-car') ||
+      req.path.startsWith('/api/recommendation');
+  }
 })
 
 // 登录接口使用更宽松的限制

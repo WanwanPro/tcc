@@ -111,30 +111,6 @@ const routes = [
         meta: { title: '系统设置', icon: 'Tools' }
       },
       {
-        path: 'users',
-        name: 'SystemUsers',
-        component: () => import('@/views/system/users.vue'),
-        meta: { title: '用户管理', icon: 'User' }
-      },
-      {
-        path: 'roles',
-        name: 'SystemRoles',
-        component: () => import('@/views/system/roles.vue'),
-        meta: { title: '角色管理', icon: 'UserFilled' }
-      },
-      {
-            path: 'reports',
-            name: 'SystemReports',
-            component: () => import('@/views/system/reports.vue'),
-            meta: { title: '报表管理', icon: 'Document' }
-          },
-          {
-            path: 'visualization',
-            name: 'SystemVisualization',
-            component: () => import('@/views/system/visualization.vue'),
-            meta: { title: '数据可视化', icon: 'DataAnalysis' }
-          },
-      {
         path: 'logs',
         name: 'SystemLogs',
         component: () => import('@/views/system/logs.vue'),
@@ -161,12 +137,6 @@ const routes = [
         meta: { title: '车位使用统计', icon: 'Location' }
       },
       {
-        path: 'forecast',
-        name: 'AnalyticsForecast',
-        component: () => import('@/views/analytics/forecast.vue'),
-        meta: { title: '流量预测', icon: 'TrendCharts' }
-      },
-      {
         path: 'reports',
         name: 'AnalyticsReports',
         component: () => import('@/views/analytics/reports.vue'),
@@ -183,25 +153,25 @@ const routes = [
       {
         path: 'overview',
         name: 'FinanceOverview',
-        component: () => import('@/views/finance/overview.vue'),
+        component: () => import('@/views/finance/pending.vue'),
         meta: { title: '财务概览', icon: 'Money' }
       },
       {
         path: 'income',
         name: 'FinanceIncome',
-        component: () => import('@/views/finance/income.vue'),
+        component: () => import('@/views/finance/pending.vue'),
         meta: { title: '收入管理', icon: 'Money' }
       },
       {
         path: 'expenses',
         name: 'FinanceExpenses',
-        component: () => import('@/views/finance/expenses.vue'),
+        component: () => import('@/views/finance/pending.vue'),
         meta: { title: '支出管理', icon: 'Money' }
       },
       {
         path: 'reports',
         name: 'FinanceReports',
-        component: () => import('@/views/finance/reports.vue'),
+        component: () => import('@/views/finance/pending.vue'),
         meta: { title: '财务报表', icon: 'Document' }
       }
     ]

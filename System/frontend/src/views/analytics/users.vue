@@ -330,7 +330,6 @@ const initCharts = () => {
   // 用户增长趋势图
   const userGrowthChartInstance = echarts.init(userGrowthChart.value)
   const userGrowthOption = {
-    title: { text: '用户增长趋势' },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
@@ -355,7 +354,6 @@ const initCharts = () => {
   // 用户类型分布图
   const userTypeChartInstance = echarts.init(userTypeChart.value)
   const userTypeOption = {
-    title: { text: '用户类型分布' },
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', left: 'left' },
     series: [
@@ -384,7 +382,6 @@ const initCharts = () => {
   // 用户活跃度图
   const userActivityChartInstance = echarts.init(userActivityChart.value)
   const userActivityOption = {
-    title: { text: '用户活跃度' },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
@@ -405,7 +402,6 @@ const initCharts = () => {
   // 用户停车时长分布图
   const parkingDurationChartInstance = echarts.init(parkingDurationChart.value)
   const parkingDurationOption = {
-    title: { text: '用户停车时长分布' },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
