@@ -120,7 +120,7 @@ export function batchUpdateSpaceStatus(spaceIds, status) {
   })
 }
 
-// 获取所有停车场统计数据
+// 兼容旧页面中的命名
 export function getAllParkingStats() {
   return request({
     url: '/admin/parking/stats',
@@ -128,56 +128,8 @@ export function getAllParkingStats() {
   })
 }
 
-// 获取车位列表
-export function getParkingSpaces(params) {
-  return request({
-    url: '/admin/parking/spaces',
-    method: 'get',
-    params
-  })
-}
-
-// 获取车位详情
 export function getParkingSpaceDetail(id) {
-  return request({
-    url: `/admin/parking/spaces/${id}`,
-    method: 'get'
-  })
-}
-
-// 创建车位
-export function createParkingSpace(data) {
-  return request({
-    url: '/admin/parking/spaces',
-    method: 'post',
-    data
-  })
-}
-
-// 更新车位
-export function updateParkingSpace(id, data) {
-  return request({
-    url: `/admin/parking/spaces/${id}`,
-    method: 'put',
-    data
-  })
-}
-
-// 删除车位
-export function deleteParkingSpace(id) {
-  return request({
-    url: `/admin/parking/spaces/${id}`,
-    method: 'delete'
-  })
-}
-
-// 批量更新车位状态
-export function batchUpdateSpaceStatus(data) {
-  return request({
-    url: '/admin/parking/spaces/batch-status',
-    method: 'put',
-    data
-  })
+  return getParkingSpace(id)
 }
 
 // 重置所有车位状态

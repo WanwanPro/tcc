@@ -235,8 +235,9 @@ router.delete('/:id', auth, async (req, res) => {
     }
 
     // 检查用户是否有未完成的停车记录
-    const activeParkingRecord = await ParkingRecord.findOne({
+    const activeParkingRecord = await Transaction.findOne({
       userId: req.params.id,
+      type: 'parking',
       exitTime: null
     });
 
@@ -269,10 +270,14 @@ router.get('/:id/stats', auth, async (req, res) => {
     const userId = req.params.id;
 
     // 获取用户总停车次数
-    const totalParkingCount = await ParkingRecord.countDocuments({ userId });
+    const totalParkingCount = await Transaction.countDocuments({ userId, type: 'parking' });
 
     // 获取用户总停车时长（分钟）
-    const parkingRecords = await ParkingRecord.find({ userId, exitTime: { $ne: null } });
+    const parkingRecords = await Transaction.find({
+      userId,
+      type: 'parking',
+      exitTime: { $ne: null }
+    });
     let totalParkingDuration = 0;
     let totalAmount = 0;
 

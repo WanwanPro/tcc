@@ -16,7 +16,12 @@ exports.calculateOptimalPath = async (req, res) => {
       });
     }
     
-    if (!startPoint.x || !startPoint.y || !endPoint.x || !endPoint.y) {
+    const hasStartX = startPoint.x !== undefined && startPoint.x !== null;
+    const hasStartY = startPoint.y !== undefined && startPoint.y !== null;
+    const hasEndX = endPoint.x !== undefined && endPoint.x !== null;
+    const hasEndY = endPoint.y !== undefined && endPoint.y !== null;
+
+    if (!hasStartX || !hasStartY || !hasEndX || !hasEndY) {
       return res.status(400).json({
         success: false,
         message: '起点和终点必须包含x和y坐标'

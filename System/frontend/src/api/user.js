@@ -33,7 +33,7 @@ export function changePassword(data) {
 
 export function updateProfile(data) {
   return request({
-    url: '/api/auth/profile',
+    url: '/auth/profile',
     method: 'put',
     data
   })
@@ -42,7 +42,7 @@ export function updateProfile(data) {
 // 用户管理相关API
 export function getUserList(params) {
   return request({
-    url: '/api/admin/users/users',
+    url: '/admin/users/users',
     method: 'get',
     params
   })
@@ -50,14 +50,14 @@ export function getUserList(params) {
 
 export function getUserDetail(id) {
   return request({
-    url: `/api/admin/users/users/${id}`,
+    url: `/admin/users/users/${id}`,
     method: 'get'
   })
 }
 
 export function createUser(data) {
   return request({
-    url: '/api/admin/users/users',
+    url: '/admin/users/users',
     method: 'post',
     data
   })
@@ -65,7 +65,7 @@ export function createUser(data) {
 
 export function updateUser(id, data) {
   return request({
-    url: `/api/admin/users/users/${id}`,
+    url: `/admin/users/users/${id}`,
     method: 'put',
     data
   })
@@ -73,14 +73,14 @@ export function updateUser(id, data) {
 
 export function deleteUser(id) {
   return request({
-    url: `/api/admin/users/users/${id}`,
+    url: `/admin/users/users/${id}`,
     method: 'delete'
   })
 }
 
 export function resetUserPassword(id, data) {
   return request({
-    url: `/api/admin/users/users/${id}/password`,
+    url: `/admin/users/users/${id}/password`,
     method: 'put',
     data
   })
@@ -88,7 +88,7 @@ export function resetUserPassword(id, data) {
 
 export function updateUserStatus(id, data) {
   return request({
-    url: `/api/admin/users/users/${id}/status`,
+    url: `/admin/users/users/${id}/status`,
     method: 'put',
     data
   })
@@ -97,14 +97,14 @@ export function updateUserStatus(id, data) {
 // 角色管理相关API
 export function getRolesList() {
   return request({
-    url: '/api/admin/users/roles',
+    url: '/admin/users/roles',
     method: 'get'
   })
 }
 
 export function createRole(data) {
   return request({
-    url: '/api/admin/users/roles',
+    url: '/admin/users/roles',
     method: 'post',
     data
   })
@@ -112,7 +112,7 @@ export function createRole(data) {
 
 export function updateRole(id, data) {
   return request({
-    url: `/api/admin/users/roles/${id}`,
+    url: `/admin/users/roles/${id}`,
     method: 'put',
     data
   })
@@ -120,7 +120,7 @@ export function updateRole(id, data) {
 
 export function deleteRole(id) {
   return request({
-    url: `/api/admin/users/roles/${id}`,
+    url: `/admin/users/roles/${id}`,
     method: 'delete'
   })
 }
@@ -128,7 +128,7 @@ export function deleteRole(id) {
 // 黑名单管理相关API
 export function getBlacklist(params) {
   return request({
-    url: '/api/admin/users/blacklist',
+    url: '/admin/users/blacklist',
     method: 'get',
     params
   })
@@ -136,7 +136,7 @@ export function getBlacklist(params) {
 
 export function addToBlacklist(data) {
   return request({
-    url: '/api/admin/users/blacklist',
+    url: '/admin/users/blacklist',
     method: 'post',
     data
   })
@@ -144,7 +144,7 @@ export function addToBlacklist(data) {
 
 export function removeFromBlacklist(id) {
   return request({
-    url: '/api/admin/users/blacklist/${id}',
+    url: `/admin/users/blacklist/${id}`,
     method: 'delete'
   })
 }

@@ -489,7 +489,7 @@ router.delete('/users/:id', auth, async (req, res) => {
     const { id } = req.params;
     
     // 检查是否尝试删除自己
-    if (id === req.user.userId) {
+    if (req.user && req.user._id && id === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
         message: '不能删除自己的账户'

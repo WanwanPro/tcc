@@ -659,14 +659,19 @@ router.post('/reports/generate', auth, [
     switch (reportType) {
       case 'revenue':
         // 收入报表
-        const revenueResult = await ParkingRecord.aggregate([
-          { $match: matchCondition },
+        const revenueResult = await Transaction.aggregate([
+          {
+            $match: {
+              ...matchCondition,
+              type: 'parking'
+            }
+          },
           {
             $group: {
               _id: null,
-              totalRevenue: { $sum: '$fee' },
+              totalRevenue: { $sum: '$amount' },
               totalTransactions: { $sum: 1 },
-              avgFee: { $avg: '$fee' }
+              avgFee: { $avg: '$amount' }
             }
           }
         ]);
@@ -768,9 +773,12 @@ router.get('/reports/export', auth, async (req, res) => {
     switch (type) {
       case 'revenue':
         // 导出收入数据
-        data = await ParkingRecord.find(matchCondition)
-          .populate('parkingLotId', 'name')
-          .populate('spaceId', 'spaceNumber')
+        data = await Transaction.find({
+          ...matchCondition,
+          type: 'parking'
+        })
+          .populate('lotId', 'name')
+          .populate('spaceId', 'spaceId')
           .sort({ exitTime: -1 });
         break;
         

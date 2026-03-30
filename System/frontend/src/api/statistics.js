@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 获取仪表盘统计数据
 export function getDashboardStatistics(params) {
   return request({
-    url: '/api/admin/statistics/dashboard',
+    url: '/admin/statistics/dashboard',
     method: 'get',
     params
   })
@@ -12,7 +12,7 @@ export function getDashboardStatistics(params) {
 // 获取用户统计数据
 export function getUserStatistics(params) {
   return request({
-    url: '/api/admin/statistics/users',
+    url: '/admin/statistics/users',
     method: 'get',
     params
   })
@@ -21,7 +21,7 @@ export function getUserStatistics(params) {
 // 获取停车场统计数据
 export function getParkingLotStatistics(params) {
   return request({
-    url: '/api/admin/statistics/parking-lots',
+    url: '/admin/statistics/parking-lots',
     method: 'get',
     params
   })
@@ -30,7 +30,7 @@ export function getParkingLotStatistics(params) {
 // 获取车位统计数据
 export function getParkingSpaceStatistics(params) {
   return request({
-    url: '/api/admin/statistics/parking-spaces',
+    url: '/admin/statistics/parking-spaces',
     method: 'get',
     params
   })
@@ -39,7 +39,7 @@ export function getParkingSpaceStatistics(params) {
 // 获取收入统计数据
 export function getRevenueStatistics(params) {
   return request({
-    url: '/api/admin/statistics/revenue',
+    url: '/admin/statistics/revenue',
     method: 'get',
     params
   })
@@ -48,7 +48,7 @@ export function getRevenueStatistics(params) {
 // 获取用户增长趋势
 export function getUserGrowthTrend(params) {
   return request({
-    url: '/api/admin/statistics/user-growth',
+    url: '/admin/statistics/user-growth',
     method: 'get',
     params
   })
@@ -57,7 +57,7 @@ export function getUserGrowthTrend(params) {
 // 获取停车记录统计
 export function getParkingRecordStatistics(params) {
   return request({
-    url: '/api/admin/statistics/parking-records',
+    url: '/admin/statistics/parking-records',
     method: 'get',
     params
   })
@@ -66,7 +66,7 @@ export function getParkingRecordStatistics(params) {
 // 获取热门停车场排行
 export function getHotParkingLots(params) {
   return request({
-    url: '/api/admin/statistics/hot-parking-lots',
+    url: '/admin/statistics/hot-parking-lots',
     method: 'get',
     params
   })
@@ -75,7 +75,7 @@ export function getHotParkingLots(params) {
 // 获取停车场列表（用于统计）
 export function getParkingLotsList(params) {
   return request({
-    url: '/api/admin/parking-lots',
+    url: '/admin/parking-lots',
     method: 'get',
     params
   })
@@ -84,7 +84,7 @@ export function getParkingLotsList(params) {
 // 获取实时车位使用情况
 export function getRealTimeSpaceUsage(params) {
   return request({
-    url: '/api/admin/statistics/real-time-usage',
+    url: '/admin/statistics/real-time-usage',
     method: 'get',
     params
   })
@@ -93,7 +93,7 @@ export function getRealTimeSpaceUsage(params) {
 // 获取用户类型分布
 export function getUserTypeDistribution(params) {
   return request({
-    url: '/api/admin/statistics/user-type-distribution',
+    url: '/admin/statistics/user-type-distribution',
     method: 'get',
     params
   })
@@ -102,7 +102,7 @@ export function getUserTypeDistribution(params) {
 // 获取收入趋势
 export function getRevenueTrend(params) {
   return request({
-    url: '/api/admin/statistics/revenue-trend',
+    url: '/admin/statistics/revenue-trend',
     method: 'get',
     params
   })
@@ -111,7 +111,7 @@ export function getRevenueTrend(params) {
 // 导出统计报表
 export function exportStatisticsReport(params) {
   return request({
-    url: '/api/admin/statistics/export',
+    url: '/admin/statistics/export',
     method: 'get',
     params,
     responseType: 'blob'
