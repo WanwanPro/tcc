@@ -113,15 +113,12 @@ tcc/
 ├── tools/                           # 工具脚本
 │   ├── start_all.py                # Python启动脚本 (推荐)
 │   ├── start-all.bat               # 批处理启动脚本
-│   ├── open-firewall-3001.bat     # 开放防火墙端口
 │   ├── test-db-connection.js      # 数据库连接测试
 │   ├── test-database-connections.js # 多数据库连接测试
-│   ├── test-login.js              # 登录测试
 │   ├── verify-local-mongo.js      # 本地MongoDB验证
-│   ├── migrate-admin-to-unified.js # 管理员迁移
 │   ├── generate-api-docs.js       # API文档生成
 │   ├── export-api-docs.js         # API文档导出
-│   └── detailed-debug-login.js    # 登录调试
+│   └── ...
 │
 ├── shared/                          # 共享模块
 │   ├── dal/                        # 数据访问层
@@ -273,7 +270,6 @@ views/
 | `tools/test-db-connection.js` | 测试TCC数据库连接 |
 | `tools/test-database-connections.js` | 测试多个数据库连接 |
 | `tools/verify-local-mongo.js` | 验证本地MongoDB状态 |
-| `tools/migrate-admin-to-unified.js` | 迁移管理员数据 |
 
 ### 4.3 数据处理脚本
 
@@ -289,9 +285,6 @@ views/
 
 | 脚本 | 说明 |
 |------|------|
-| `tools/test-login.js` | 登录测试 |
-| `tools/debug-test-login.js` | 登录调试 |
-| `tools/detailed-debug-login.js` | 详细登录调试 |
 | `scripts/test-navigation-system.js` | 导航系统测试 |
 
 ---
