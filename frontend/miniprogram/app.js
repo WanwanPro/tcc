@@ -1,9 +1,25 @@
+const API_ENDPOINTS = {
+  local: 'http://localhost:3001/api',
+  cloud: 'https://mini.wanwanpro.top/api'
+};
+
+function resolveApiEnv() {
+  const storedEnv = wx.getStorageSync('apiEnv');
+  if (storedEnv === 'local' || storedEnv === 'cloud') {
+    return storedEnv;
+  }
+  // 默认走云端，保证当前验收链路可以直接连到已部署服务
+  return 'cloud';
+}
+
 App({
   globalData: {
     userInfo: null,
     token: null,
     userId: '',
-    baseUrl: 'http://localhost:3001/api',
+    apiEnv: resolveApiEnv(),
+    baseUrl: API_ENDPOINTS[resolveApiEnv()],
+    apiEndpoints: API_ENDPOINTS,
     systemSettings: {
       systemName: '智能停车场系统',
       systemVersion: '1.0.0',
@@ -17,6 +33,7 @@ App({
   onLaunch() {
     // 小程序初始化时执行
     console.log('智能停车场小程序启动');
+    console.log('当前 API 环境：', this.globalData.apiEnv, this.globalData.baseUrl);
 
     this.ensureDevOpenId();
     // 检查登录状态
@@ -32,6 +49,14 @@ App({
     }
     this.globalData.devOpenId = devOpenId;
     return devOpenId;
+  },
+
+  setApiEnv(env = 'cloud') {
+    const nextEnv = env === 'local' ? 'local' : 'cloud';
+    wx.setStorageSync('apiEnv', nextEnv);
+    this.globalData.apiEnv = nextEnv;
+    this.globalData.baseUrl = API_ENDPOINTS[nextEnv];
+    return this.globalData.baseUrl;
   },
 
   normalizeSessionPayload(data = {}) {

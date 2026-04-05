@@ -4,7 +4,7 @@ import ErrorHandler from './errorHandler'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: '/api', // API的base_url
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api', // 生产环境走显式配置，本地开发继续走 /api 代理
   timeout: 15000 // 请求超时时间
 })
 

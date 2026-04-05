@@ -4,9 +4,10 @@
 
 TCC停车管理系统包含以下三个主要组件：
 
-1. **TCC小程序后端** - 为小程序提供API服务 (端口: 3001)
-2. **System管理后端** - 为管理前端提供API服务 (端口: 5000)
-3. **System管理前端** - 基于Vue.js的管理界面 (端口: 5001)
+1. **TCC小程序后端** - 为微信小程序提供基于Node.js的API服务 (端口: 3001)
+2. **System管理后端** - 为管理前端提供基于Node.js的API服务 (端口: 5001)
+3. **System管理前端** - 基于Vue 3的系统管理界面 (端口: 5002)
+4. **TCC微信小程序** - 停车引导与导航客户端界面 (frontend/miniprogram)
 
 ## 数据库配置
 
@@ -47,24 +48,27 @@ TCC停车管理系统包含以下三个主要组件：
 启动成功后，您可以通过以下地址访问各个服务：
 
 - TCC小程序后端API: http://localhost:3001
-- System管理后端API: http://localhost:5000
+- System管理后端API: http://localhost:5001
 - System管理前端界面: http://localhost:5002
 
 ## 项目结构
 
-```
+```text
 tcc/
-├── backend/              # TCC小程序后端
+├── backend/              # TCC小程序后端代码 (Node.js)
 │   ├── .env             # 环境变量配置
 │   ├── server.js        # 服务器入口文件
 │   └── ...
-├── System/              # System管理系统
-│   ├── backend/         # System管理后端
+├── frontend/             # 停车客户端代码
+│   └── miniprogram/      # 微信小程序前端代码
+├── System/               # 后台管理系统代码
+│   ├── backend/         # System管理后端 (Node.js)
 │   │   ├── .env         # 环境变量配置
 │   │   └── server.js    # 服务器入口文件
-│   └── frontend/        # System管理前端
+│   └── frontend/        # System管理前端 (Vue 3)
 │       ├── vite.config.js  # Vite配置文件
 │       └── ...
+├── tools/                # 工具脚本目录 (包含启动脚本等)
 ├── start-all.bat        # 批处理启动脚本
 ├── start-all.ps1        # PowerShell启动脚本
 ├── stop-all.bat         # 停止服务脚本
