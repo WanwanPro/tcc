@@ -2,6 +2,8 @@ const API_ENDPOINTS = {
   local: 'http://localhost:3001/api',
   cloud: 'https://mini.wanwanpro.top/api'
 };
+// getApp().setApiEnv('local') 切回本地
+// getApp().setApiEnv('cloud') 切到云端
 
 function resolveApiEnv() {
   const storedEnv = wx.getStorageSync('apiEnv');
