@@ -409,7 +409,18 @@ class DynamicWeightedAStarOptimized {
     this.minWeight = options.minWeight || 1.0;
     this.allowDiagonal = options.allowDiagonal || false;
     this.enablePathSmoothing = options.pathSmoothing !== false;
+    this.enableLineOfSightSmoothing = options.lineOfSightSmoothing === true;
     this.maxIterations = options.maxIterations || 50000;
+    this.costFactors = {
+      turn: options.turnPenalty ?? 0.45,
+      narrow: options.narrowPenalty ?? 0.3,
+      occupiedBuffer: options.occupiedBufferPenalty ?? 0.55,
+      deadEnd: options.deadEndPenalty ?? 0.2,
+      directionChange: options.directionChangePenalty ?? 0.15,
+      earlyTurn: options.earlyTurnPenalty ?? 0.35,
+      edge: options.edgePenalty ?? 0.28,
+      forwardSightBonus: options.forwardSightBonus ?? 0.12
+    };
 
     // 网格类型常量
     this.WALL = 1;
@@ -417,6 +428,19 @@ class DynamicWeightedAStarOptimized {
     this.SPOT = 2;
     this.TARGET = 3;
     this.OCCUPIED = 4;
+
+    // 方向缓存，避免在搜索过程中重复创建数组
+    this._orthogonalDirs = [
+      [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1]
+    ];
+    this._diagonalDirs = [
+      [-1, -1, 1.414], [1, -1, 1.414],
+      [-1, 1, 1.414], [1, 1, 1.414]
+    ];
+    this._neighborhoodDirs = [
+      [-1, 0], [1, 0], [0, -1], [0, 1],
+      [-1, -1], [1, -1], [-1, 1], [1, 1]
+    ];
 
     // 性能统计
     this.stats = {
@@ -426,7 +450,10 @@ class DynamicWeightedAStarOptimized {
       computeTime: 0,
       smoothTime: 0,
       originalLength: 0,
-      weightChanges: 0
+      weightChanges: 0,
+      totalCost: 0,
+      averageWeight: 0,
+      turnCount: 0
     };
 
     // 预分配数据结构
@@ -482,19 +509,9 @@ class DynamicWeightedAStarOptimized {
    */
   _getNeighbors(x, y, grid, start, end) {
     const neighbors = [];
-
-    // 四方向
-    const dirs = [
-      [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1]
-    ];
-
-    // 八方向
-    if (this.allowDiagonal) {
-      dirs.push(
-        [-1, -1, 1.414], [1, -1, 1.414],
-        [-1, 1, 1.414], [1, 1, 1.414]
-      );
-    }
+    const dirs = this.allowDiagonal
+      ? this._orthogonalDirs.concat(this._diagonalDirs)
+      : this._orthogonalDirs;
 
     for (const [dx, dy, cost] of dirs) {
       const nx = x + dx;
@@ -506,6 +523,150 @@ class DynamicWeightedAStarOptimized {
     }
 
     return neighbors;
+  }
+
+  _getCellType(x, y, grid) {
+    if (!grid || y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) {
+      return this.WALL;
+    }
+    return grid[y][x];
+  }
+
+  _getTurnPenalty(current, nextX, nextY) {
+    const prev = this._cameFrom.get(current.key);
+    if (!prev) return 0;
+
+    const prevDx = current.x - prev.x;
+    const prevDy = current.y - prev.y;
+    const nextDx = nextX - current.x;
+    const nextDy = nextY - current.y;
+
+    if (prevDx === nextDx && prevDy === nextDy) {
+      return 0;
+    }
+
+    const isUTurn = prevDx === -nextDx && prevDy === -nextDy;
+    if (isUTurn) {
+      return this.costFactors.turn * 1.5;
+    }
+
+    return this.costFactors.turn;
+  }
+
+  _getLocalPenalty(x, y, grid, end) {
+    if (x === end.x && y === end.y) return 0;
+
+    let blockedCount = 0;
+    let occupiedCount = 0;
+    let walkableCount = 0;
+
+    for (const [dx, dy] of this._neighborhoodDirs) {
+      const cellType = this._getCellType(x + dx, y + dy, grid);
+
+      if (cellType === this.ROAD || cellType === this.SPOT || cellType === this.TARGET) {
+        walkableCount++;
+      } else if (cellType === this.OCCUPIED) {
+        occupiedCount++;
+      } else {
+        blockedCount++;
+      }
+    }
+
+    const narrowPenalty = (blockedCount / this._neighborhoodDirs.length) * this.costFactors.narrow;
+    const occupiedPenalty = (occupiedCount / this._neighborhoodDirs.length) * this.costFactors.occupiedBuffer;
+    const deadEndPenalty = walkableCount <= 2 ? this.costFactors.deadEnd : 0;
+
+    return narrowPenalty + occupiedPenalty + deadEndPenalty;
+  }
+
+  _getDirectionalPenalty(current, nextX, nextY, end) {
+    const toEndX = Math.sign(end.x - current.x);
+    const toEndY = Math.sign(end.y - current.y);
+    const moveX = Math.sign(nextX - current.x);
+    const moveY = Math.sign(nextY - current.y);
+
+    // 与目标主方向明显背离时，施加轻微惩罚，提升稳定性但不过度限制绕行
+    const movingAwayX = toEndX !== 0 && moveX !== 0 && toEndX !== moveX;
+    const movingAwayY = toEndY !== 0 && moveY !== 0 && toEndY !== moveY;
+
+    return (movingAwayX || movingAwayY) ? this.costFactors.directionChange : 0;
+  }
+
+  _getEarlyTurnPenalty(current, nextX, nextY, end) {
+    const prev = this._cameFrom.get(current.key);
+    if (!prev) return 0;
+
+    const prevDx = current.x - prev.x;
+    const prevDy = current.y - prev.y;
+    const nextDx = nextX - current.x;
+    const nextDy = nextY - current.y;
+    const isTurning = prevDx !== nextDx || prevDy !== nextDy;
+
+    if (!isTurning) return 0;
+
+    const turningVertical = nextDy !== 0;
+    const turningHorizontal = nextDx !== 0;
+
+    if (turningVertical && current.x !== end.x) {
+      const xGap = Math.abs(end.x - current.x);
+      return this.costFactors.earlyTurn * Math.min(1.5, 0.5 + xGap * 0.15);
+    }
+
+    if (turningHorizontal && current.y !== end.y) {
+      const yGap = Math.abs(end.y - current.y);
+      return this.costFactors.earlyTurn * Math.min(1.5, 0.5 + yGap * 0.15);
+    }
+
+    return 0;
+  }
+
+  _measureClearance(x, y, stepX, stepY, grid, maxDistance = 3) {
+    let clearance = 0;
+
+    for (let distance = 1; distance <= maxDistance; distance++) {
+      const cellType = this._getCellType(x + stepX * distance, y + stepY * distance, grid);
+      if (cellType === this.ROAD || cellType === this.SPOT || cellType === this.TARGET) {
+        clearance++;
+        continue;
+      }
+      break;
+    }
+
+    return clearance;
+  }
+
+  _getLanePreferenceAdjustment(current, nextX, nextY, grid) {
+    const moveX = Math.sign(nextX - current.x);
+    const moveY = Math.sign(nextY - current.y);
+
+    if (moveX === 0 && moveY === 0) return 0;
+
+    const leftClearance = this._measureClearance(nextX, nextY, -moveY, moveX, grid);
+    const rightClearance = this._measureClearance(nextX, nextY, moveY, -moveX, grid);
+    const forwardSight = this._measureClearance(nextX, nextY, moveX, moveY, grid, 4);
+
+    const edgePenalty = Math.max(0, 2 - Math.min(leftClearance, rightClearance)) * this.costFactors.edge;
+    const imbalancePenalty = Math.abs(leftClearance - rightClearance) * this.costFactors.edge * 0.18;
+    const forwardBonus = Math.min(3, forwardSight) * this.costFactors.forwardSightBonus;
+
+    return edgePenalty + imbalancePenalty - forwardBonus;
+  }
+
+  _getTraversalCost(current, neighbor, grid, end) {
+    const baseCost = neighbor.cost;
+    const turnPenalty = this._getTurnPenalty(current, neighbor.x, neighbor.y);
+    const localPenalty = this._getLocalPenalty(neighbor.x, neighbor.y, grid, end);
+    const directionalPenalty = this._getDirectionalPenalty(current, neighbor.x, neighbor.y, end);
+    const earlyTurnPenalty = this._getEarlyTurnPenalty(current, neighbor.x, neighbor.y, end);
+    const lanePreferenceAdjustment = this._getLanePreferenceAdjustment(current, neighbor.x, neighbor.y, grid);
+
+    return {
+      cost: Math.max(
+        baseCost * 0.7,
+        baseCost + turnPenalty + localPenalty + directionalPenalty + earlyTurnPenalty + lanePreferenceAdjustment
+      ),
+      turnPenalty
+    };
   }
 
   /**
@@ -527,7 +688,10 @@ class DynamicWeightedAStarOptimized {
       computeTime: 0,
       smoothTime: 0,
       originalLength: 0,
-      weightChanges: 0
+      weightChanges: 0,
+      totalCost: 0,
+      averageWeight: 0,
+      turnCount: 0
     };
 
     // 参数验证
@@ -555,6 +719,7 @@ class DynamicWeightedAStarOptimized {
     // 搜索循环
     let iterations = 0;
     let bestNode = null;
+    let accumulatedWeight = 0;
 
     while (!this._openHeap.isEmpty() && iterations < this.maxIterations) {
       iterations++;
@@ -565,17 +730,26 @@ class DynamicWeightedAStarOptimized {
         const path = this._reconstructPath(current);
         this.stats.computeTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
         this.stats.originalLength = path.length;
+        this.stats.totalCost = current.g;
+        this.stats.averageWeight = iterations > 0 ? accumulatedWeight / iterations : 0;
 
         // 路径优化
         if (this.enablePathSmoothing && path.length > 2) {
           const smoothStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
-          const smoothed = PathOptimizer.removeRedundant(path);
+          const candidatePath = this.enableLineOfSightSmoothing
+            ? PathOptimizer.smoothPath(path, grid, (x, y, targetGrid) => {
+                return this._isWalkable(x, y, targetGrid, start, end);
+              })
+            : path;
+          const smoothed = PathOptimizer.removeRedundant(candidatePath);
           this.stats.smoothTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - smoothStart;
           this.stats.pathLength = smoothed.length;
+          this.stats.turnCount = PathOptimizer.evaluatePath(smoothed).turns;
           return smoothed;
         }
 
         this.stats.pathLength = path.length;
+        this.stats.turnCount = PathOptimizer.evaluatePath(path).turns;
         return path;
       }
 
@@ -588,6 +762,7 @@ class DynamicWeightedAStarOptimized {
         openListSize: this._openHeap.size,
         pathQuality: current.g > 0 ? estimatedDist / current.g : 1
       });
+      accumulatedWeight += weight;
 
       // 统计权重变化
       if (Math.abs(weight - lastWeight) > 0.1) {
@@ -608,7 +783,8 @@ class DynamicWeightedAStarOptimized {
 
         if (this._closedSet.has(neighborKey)) continue;
 
-        const tentativeG = this._gScore.get(current.key) + neighbor.cost;
+        const traversal = this._getTraversalCost(current, neighbor, grid, end);
+        const tentativeG = this._gScore.get(current.key) + traversal.cost;
         const existingG = this._gScore.get(neighborKey);
 
         if (existingG === undefined || tentativeG < existingG) {
@@ -646,10 +822,14 @@ class DynamicWeightedAStarOptimized {
       const path = this._reconstructPath(bestNode);
       this.stats.computeTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
       this.stats.pathLength = path.length;
+      this.stats.totalCost = bestNode.g;
+      this.stats.averageWeight = iterations > 0 ? accumulatedWeight / iterations : 0;
+      this.stats.turnCount = PathOptimizer.evaluatePath(path).turns;
       return path;
     }
 
     this.stats.computeTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
+    this.stats.averageWeight = iterations > 0 ? accumulatedWeight / iterations : 0;
     return [];
   }
 
@@ -673,7 +853,11 @@ class DynamicWeightedAStarOptimized {
    * 获取统计信息
    */
   getStats() {
-    return { ...this.stats };
+    return {
+      ...this.stats,
+      averageWeight: Number((this.stats.averageWeight || 0).toFixed(3)),
+      totalCost: Number((this.stats.totalCost || 0).toFixed(3))
+    };
   }
 }
 

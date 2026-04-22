@@ -1,4 +1,27 @@
 <view class="container">
+  <!-- 定位信息卡片 -->
+  <view class="location-card" bindtap="refreshLocation">
+    <view class="location-header">
+      <text class="location-title">当前位置</text>
+      <text wx:if="{{locationLoading}}" class="location-loading">定位中...</text>
+      <text wx:elif="{{currentLocation}}" class="location-refresh">点击刷新</text>
+      <text wx:else class="location-refresh">点击定位</text>
+    </view>
+    <view wx:if="{{currentLocation}}" class="location-body">
+      <!-- 详细地址（如：广州市天河区xx街道） -->
+      <text class="location-address">{{currentLocation.formattedAddress || currentLocation.address || '位置已获取'}}</text>
+      <!-- 经纬度 -->
+      <view class="location-coords">
+        <text class="coord-item">纬度: {{currentLocation.latitude}}</text>
+        <text class="coord-divider">|</text>
+        <text class="coord-item">经度: {{currentLocation.longitude}}</text>
+      </view>
+    </view>
+    <view wx:else class="location-body">
+      <text class="location-placeholder">正在获取您的位置信息...</text>
+    </view>
+  </view>
+
   <view class="header">
     <text class="parking-name">{{parkingName}}</text>
     <text class="welcome">欢迎使用智能停车系统</text>

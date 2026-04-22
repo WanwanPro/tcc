@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCC 智能停车场系统 - 数据库 ER 图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e4e4e4;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #888;
+            font-size: 1.1em;
+        }
+        .modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .module-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .module-card h3 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        .module-card ul {
+            list-style: none;
+            color: #aaa;
+        }
+        .module-card li {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .module-card li:last-child {
+            border-bottom: none;
+        }
+        .diagram-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .diagram-section h2 {
+            color: #00ff88;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+        .mermaid {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .table-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .table-item {
+            background: rgba(0,217,255,0.1);
+            border: 1px solid rgba(0,217,255,0.3);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .table-item h4 {
+            color: #00d9ff;
+            margin-bottom: 8px;
+        }
+        .table-item p {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .legend {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .legend h4 {
+            color: #00ff88;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            color: #aaa;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .summary-table th, .summary-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .summary-table th {
+            color: #00d9ff;
+            font-weight: 600;
+        }
+        .summary-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .tag-primary { background: rgba(0,217,255,0.2); color: #00d9ff; }
+        .tag-success { background: rgba(0,255,136,0.2); color: #00ff88; }
+        .tag-warning { background: rgba(255,193,7,0.2); color: #ffc107; }
+        .tag-info { background: rgba(23,162,184,0.2); color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TCC 智能停车场系统</h1>
+            <p>数据库实体关系图 (ER Diagram) - 基于 Mongoose Schema</p>
+        </div>
+
+        <div class="modules">
+            <div class="module-card">
+                <h3>后台管理系统</h3>
+                <ul>
+                    <li>用户权限管理</li>
+                    <li>停车场运营管理</li>
+                    <li>停车位监控</li>
+                    <li>交易与计费</li>
+                    <li>系统配置</li>
+                </ul>
+            </div>
+            <div class="module-card">
+                <h3>微信小程序</h3>
+                <ul>
+                    <li>用户登录注册</li>
+                    <li>车辆绑定管理</li>
+                    <li>停车记录查询</li>
+                    <li>停车场收藏</li>
+                    <li>用户反馈</li>
+                </ul>
+            </div>
+            <div class="module-card">
+                <h3>导航系统</h3>
+                <ul>
+                    <li>地图节点管理</li>
+                    <li>路径规划</li>
+                    <li>智能寻车</li>
+                    <li>反向寻车</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>1. 系统整体架构 ER 图</h2>
+            <div class="mermaid">
+erDiagram
+    %% 后台用户模块
+    Role ||--o{ User : "分配角色"
+    User {
+        ObjectId id PK
+        string username UK
+        string email UK
+        string password
+        string name
+        ObjectId role FK
+        string status
+    }
+
+    Role {
+        ObjectId id PK
+        string name UK
+        string description
+        array permissions
+    }
+
+    Admin {
+        ObjectId id PK
+        string username UK
+        string email UK
+        string name
+        string role
+        array permissions
+        string status
+    }
+
+    %% 停车场核心模块
+    ParkingLot ||--o{ ParkingSpace : "拥有"
+    ParkingLot ||--o{ MapNode : "包含"
+    ParkingLot ||--o{ PricingRule : "设置定价"
+    ParkingLot ||--o{ Transaction : "关联交易"
+    ParkingLot {
+        ObjectId id PK
+        string name
+        string address
+        int totalSpaces
+        string status
+    }
+    
+    ParkingSpace {
+        ObjectId id PK
+        string spaceId UK
+        string floorId
+        ObjectId lotId FK
+        string type
+        string status
+        object position
+    }
+    
+    MapNode ||--o| ParkingLot : "属于"
+    MapNode ||--o{ NavigationPath : "关联"
+    MapNode {
+        ObjectId id PK
+        string nodeId
+        string floorId
+        ObjectId lotId FK
+        string type
+        object position
+    }
+    
+    NavigationPath {
+        ObjectId id PK
+        string pathId UK
+        ObjectId lotId FK
+        ObjectId startNode FK
+        ObjectId endNode FK
+        float totalDistance
+    }
+
+    PricingRule ||--o| ParkingLot : "属于"
+    PricingRule {
+        ObjectId id PK
+        string name
+        ObjectId lotId FK
+        array rules
+        boolean isActive
+    }
+    
+    Transaction ||--o| ParkingLot : "所属"
+    Transaction ||--o| ParkingSpace : "使用"
+    Transaction ||--o| PricingRule : "应用规则"
+    Transaction {
+        ObjectId id PK
+        string transactionId UK
+        string type
+        float amount
+        string paymentStatus
+    }
+
+    %% 小程序模块
+    MiniProgramUser ||--o{ Vehicle : "绑定"
+    MiniProgramUser ||--o{ ParkingRecord : "记录"
+    MiniProgramUser ||--o{ FavoriteParkingLot : "收藏"
+    MiniProgramUser ||--o{ UserFeedback : "反馈"
+    MiniProgramUser {
+        ObjectId id PK
+        string openId UK
+        string nickName
+        string phone
+        boolean isActive
+    }
+    
+    Vehicle ||--o| MiniProgramUser : "所属"
+    Vehicle {
+        ObjectId id PK
+        ObjectId userId FK
+        string licensePlate
+        string vehicleType
+        boolean isDefault
+    }
+    
+    ParkingRecord ||--o| MiniProgramUser : "用户"
+    ParkingRecord ||--o| Vehicle : "车辆"
+    ParkingRecord ||--o| ParkingLot : "停车场"
+    ParkingRecord ||--o| ParkingSpace : "车位"
+    ParkingRecord {
+        ObjectId id PK
+        ObjectId userId FK
+        ObjectId vehicleId FK
+        ObjectId parkingLotId FK
+        ObjectId spaceId FK
+        Date entryTime
+        Date exitTime
+        string status
+        object fee
+    }
+    
+    FavoriteParkingLot ||--o| MiniProgramUser : "用户"
+    FavoriteParkingLot ||--o| ParkingLot : "停车场"
+    FavoriteParkingLot {
+        ObjectId id PK
+        ObjectId userId FK
+        ObjectId parkingLotId FK
+    }
+    
+    UserFeedback ||--o| MiniProgramUser : "用户"
+    UserFeedback {
+        ObjectId id PK
+        ObjectId userId FK
+        string type
+        string content
+        string status
+    }
+
+    SystemConfig {
+        ObjectId id PK
+        string configKey UK
+        mixed configValue
+        string category
+    }
+
+    AnalyticsReport {
+        ObjectId id PK
+        string name
+        string type
+        ObjectId parkingLotId FK
+        object data
+    }
+            </div>
+            <div class="legend">
+                <h4>图例说明</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d9ff;"></div>
+                    <span>PK - 主键 (Primary Key)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff88;"></div>
+                    <span>FK - 外键 (Foreign Key)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffc107;"></div>
+                    <span>UK - 唯一键 (Unique Key)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>2. 表结构总览</h2>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>模块</th>
+                        <th>表名</th>
+                        <th>说明</th>
+                        <th>主要字段</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="3">用户管理</td>
+                        <td>User</td>
+                        <td>后台系统用户</td>
+                        <td>username, email, password, role</td>
+                    </tr>
+                    <tr>
+                        <td>Role</td>
+                        <td>用户角色</td>
+                        <td>name, description, permissions</td>
+                    </tr>
+                    <tr>
+                        <td>Admin</td>
+                        <td>独立管理员</td>
+                        <td>username, password, role, permissions</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="3">停车场</td>
+                        <td>ParkingLot</td>
+                        <td>停车场</td>
+                        <td>name, address, totalSpaces, floors</td>
+                    </tr>
+                    <tr>
+                        <td>ParkingSpace</td>
+                        <td>停车位</td>
+                        <td>spaceId, floorId, type, status, position</td>
+                    </tr>
+                    <tr>
+                        <td>MapNode</td>
+                        <td>地图节点</td>
+                        <td>nodeId, type, position, connections</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2">导航</td>
+                        <td>NavigationPath</td>
+                        <td>导航路径</td>
+                        <td>pathId, startNode, endNode, totalDistance</td>
+                    </tr>
+                    <tr>
+                        <td>Transaction</td>
+                        <td>交易记录</td>
+                        <td>transactionId, amount, paymentStatus</td>
+                    </tr>
+                    <tr>
+                        <td>计费</td>
+                        <td>PricingRule</td>
+                        <td>定价规则</td>
+                        <td>name, rules, specialRules</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2">系统</td>
+                        <td>SystemConfig</td>
+                        <td>系统配置</td>
+                        <td>configKey, configValue, category</td>
+                    </tr>
+                    <tr>
+                        <td>AnalyticsReport</td>
+                        <td>分析报告</td>
+                        <td>name, type, period, data</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="5">小程序</td>
+                        <td>MiniProgramUser</td>
+                        <td>小程序用户</td>
+                        <td>openId, unionId, nickName, phone</td>
+                    </tr>
+                    <tr>
+                        <td>Vehicle</td>
+                        <td>用户车辆</td>
+                        <td>licensePlate, vehicleType, brand, model</td>
+                    </tr>
+                    <tr>
+                        <td>ParkingRecord</td>
+                        <td>停车记录</td>
+                        <td>entryTime, exitTime, status, fee</td>
+                    </tr>
+                    <tr>
+                        <td>FavoriteParkingLot</td>
+                        <td>收藏停车场</td>
+                        <td>userId, parkingLotId, addedAt</td>
+                    </tr>
+                    <tr>
+                        <td>UserFeedback</td>
+                        <td>用户反馈</td>
+                        <td>type, content, status, adminReply</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="diagram-section">
+            <h2>3. 核心实体关系详解</h2>
+            
+            <h3 style="color: #00d9ff; margin: 20px 0 10px;">3.1 停车场核心关系</h3>
+            <div class="mermaid">
+graph LR
+    A["ParkingLot<br/>停车场"] -->|"1:N"| B["ParkingSpace<br/>停车位"]
+    A -->|"1:N"| C["MapNode<br/>地图节点"]
+    A -->|"1:N"| D["PricingRule<br/>定价规则"]
+    A -->|"1:N"| E["Transaction<br/>交易记录"]
+    
+    B -->|"N:1"| F["MapNode<br/>所在节点"]
+    C -->|"1:N"| G["NavigationPath<br/>导航路径"]
+    D -->|"1:N"| E["关联交易"]
+    
+    style A fill:#00d9ff,color:#000
+    style B fill:#00ff88,color:#000
+    style C fill:#ffc107,color:#000
+    style D fill:#ff6b6b,color:#000
+    style E fill:#a55eea,color:#fff
+    style F fill:#ffc107,color:#000
+    style G fill:#17a2b8,color:#fff
+            </div>
+
+            <h3 style="color: #00d9ff; margin: 30px 0 10px;">3.2 小程序用户关系</h3>
+            <div class="mermaid">
+graph LR
+    A["MiniProgramUser<br/>小程序用户"] -->|"1:N"| B["Vehicle<br/>车辆"]
+    A -->|"1:N"| C["ParkingRecord<br/>停车记录"]
+    A -->|"1:N"| D["FavoriteParkingLot<br/>收藏"]
+    A -->|"1:N"| E["UserFeedback<br/>反馈"]
+    
+    B -->|"1:N"| C["停车"]
+    C -->|"N:1"| F["ParkingLot<br/>停车场"]
+    C -->|"N:1"| G["ParkingSpace<br/>停车位"]
+    C -->|"N:1"| H["NavigationPath<br/>导航"]
+    
+    style A fill:#00d9ff,color:#000
+    style B fill:#00ff88,color:#000
+    style C fill:#ffc107,color:#000
+    style D fill:#ff6b6b,color:#000
+    style E fill:#a55eea,color:#fff
+    style F fill:#26de81,color:#000
+    style G fill:#26de81,color:#000
+    style H fill:#17a2b8,color:#fff
+            </div>
+
+            <h3 style="color: #00d9ff; margin: 30px 0 10px;">3.3 地图导航拓扑</h3>
+            <div class="mermaid">
+graph TD
+    A["ParkingLot<br/>停车场"] -->|"包含"| B["Floor 1<br/>楼层1"]
+    A -->|"包含"| C["Floor 2<br/>楼层2"]
+    A -->|"包含"| D["Floor N<br/>楼层N"]
+    
+    B -->|"包含"| E["MapNode:入口<br/>entrance"]
+    B -->|"包含"| F["MapNode:出口<br/>exit"]
+    B -->|"包含"| G["MapNode:交叉口<br/>intersection"]
+    B -->|"包含"| H["MapNode:电梯<br/>elevator"]
+    B -->|"包含"| I["MapNode:车位<br/>parking"]
+    
+    E -->|"连接"| G
+    G -->|"连接"| H
+    G -->|"连接"| F
+    H -->|"连接"| I
+    G -->|"连接"| I1["MapNode:车位..."]
+    
+    G -.->|"形成"| J["NavigationPath<br/>导航路径"]
+    
+    style A fill:#00d9ff,color:#000
+    style B fill:#00ff88,color:#000
+    style C fill:#00ff88,color:#000
+    style D fill:#00ff88,color:#000
+    style E fill:#ffc107,color:#000
+    style F fill:#ff6b6b,color:#000
+    style G fill:#a55eea,color:#fff
+    style H fill:#17a2b8,color:#fff
+    style I fill:#00ff88,color:#000
+    style J fill:#ff9ff3,color:#000
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>4. 技术栈说明</h2>
+            <div class="table-list">
+                <div class="table-item">
+                    <h4>数据库</h4>
+                    <p>MongoDB - NoSQL文档数据库</p>
+                </div>
+                <div class="table-item">
+                    <h4>ORM框架</h4>
+                    <p>Mongoose - MongoDB对象建模工具</p>
+                </div>
+                <div class="table-item">
+                    <h4>用户认证</h4>
+                    <p>JWT + bcrypt 密码加密</p>
+                </div>
+                <div class="table-item">
+                    <h4>索引策略</h4>
+                    <p>唯一索引、复合索引、字段索引</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            er: {
+                diagramPadding: 20,
+                nodePadding: 15,
+                minEntityWidth: 100,
+                minEntityHeight: 30,
+                entityPadding: 15,
+                stroke: '#666',
+                fill: '#fff',
+                fontSize: 12
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            graph: {
+                useMaxWidth: true,
+                padding: 15
+            }
+        });
+    </script>
+</body>
+</html>

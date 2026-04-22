@@ -36,5 +36,15 @@
       }
     ]
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "需要获取您的位置信息，用于查找附近停车场和导航"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "requiredBackgroundModes": ["location"],
   "sitemapLocation": "sitemap.json"
 }

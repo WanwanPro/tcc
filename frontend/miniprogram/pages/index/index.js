@@ -4,12 +4,20 @@ const defaultNotices = [
   "如有问题请联系管理员"
 ];
 
+const {
+  checkLocationAuth,
+  requestLocationAuth
+} = require('../../utils/location');
+
 Page({
   data: {
     freeSpaces: 0,
     totalSpaces: 100,
     parkingName: "智能停车场",
-    notices: defaultNotices
+    notices: defaultNotices,
+    // 定位相关
+    locationLoading: false,
+    currentLocation: null
   },
 
   // 定时刷新定时器
@@ -19,14 +27,37 @@ Page({
     // 页面加载时获取数据
     this.getSpaceInfo();
     this.getNoticeList();
-    
+
     // 启动定时刷新（每30秒自动刷新一次）
     this.startAutoRefresh();
+
+    // 自动获取定位
+    this.autoGetLocation();
   },
 
   onUnload() {
     // 页面卸载时清除定时器
     this.stopAutoRefresh();
+    this.stopLocationRefresh();
+  },
+
+  onHide() {
+    // 页面隐藏时停止定位刷新
+    this.stopLocationRefresh();
+  },
+
+  onShow() {
+    // 页面显示时更新数据
+    this.getSpaceInfo();
+    this.getNoticeList();
+
+    // 确保定时器在运行
+    if (!this.refreshTimer) {
+      this.startAutoRefresh();
+    }
+
+    // 恢复定位刷新
+    this.startLocationRefresh();
   },
 
   onShow() {
@@ -195,6 +226,132 @@ Page({
         }
       }
     });
+  },
+
+  // ============ 定位功能 ============
+
+  async autoGetLocation() {
+    this.setData({ locationLoading: true });
+
+    try {
+      // 1. 检查权限
+      const auth = await checkLocationAuth();
+
+      if (!auth.authorized) {
+        if (auth.status === 'denied') {
+          wx.showModal({
+            title: '需要定位权限',
+            content: '开启定位可查找附近停车场',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting();
+              }
+            }
+          });
+          this.setData({ locationLoading: false });
+          return;
+        }
+        await requestLocationAuth();
+      }
+
+      // 2. 获取原生定位（不依赖腾讯服务）
+      const { getNativeLocation } = require('../../utils/location');
+      const location = await getNativeLocation({ highAccuracy: true });
+      console.log('[定位] 当前位置:', location);
+
+      // 格式化显示（先显示加载中，等地址解析完成后再更新）
+      const displayLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        formattedAddress: '正在获取地址信息...',
+        address: '正在获取地址信息...',
+        adInfo: { city: '', district: '' }
+      };
+
+      this.setData({
+        currentLocation: displayLocation,
+        locationLoading: false
+      });
+
+      // 3. 尝试获取详细地址（腾讯服务）
+      this.fetchAddressDetail(location);
+
+    } catch (err) {
+      console.error('[定位] 失败:', err);
+      this.setData({ locationLoading: false });
+      wx.showToast({
+        title: err.message || '定位失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  async fetchAddressDetail(location) {
+    try {
+      const { reverseGeocode } = require('../../utils/location');
+      const addressInfo = await reverseGeocode(location.latitude, location.longitude);
+
+      console.log('[定位] 地址解析结果:', addressInfo);
+
+      // 更新位置信息，显示详细地址
+      const city = addressInfo.adInfo?.city || '';
+      const district = addressInfo.adInfo?.district || '';
+      const street = addressInfo.adInfo?.street || '';
+      const streetNumber = addressInfo.adInfo?.streetNumber || '';
+
+      // 构建地址描述
+      const addressParts = [city, district, street, streetNumber].filter(Boolean);
+      const addressDesc = addressParts.length > 0
+        ? addressParts.join('')
+        : (addressInfo.formattedAddress || addressInfo.address || '位置已获取');
+
+      this.setData({
+        currentLocation: {
+          ...this.data.currentLocation,
+          formattedAddress: addressDesc,
+          address: addressDesc,
+          adInfo: addressInfo.adInfo || { city, district }
+        }
+      });
+
+    } catch (err) {
+      console.log('[定位] 地址解析失败，使用经纬度:', err.message);
+      // 保持默认的经纬度显示
+      const lat = location.latitude.toFixed(6);
+      const lng = location.longitude.toFixed(6);
+      this.setData({
+        currentLocation: {
+          ...this.data.currentLocation,
+          formattedAddress: `当前位置: ${lat}, ${lng}`,
+          address: `当前位置: ${lat}, ${lng}`
+        }
+      });
+    }
+  },
+
+
+
+  // 手动刷新定位
+  refreshLocation() {
+    this.autoGetLocation();
+  },
+
+  // ============ 持续定位刷新（可选） ============
+
+  startLocationRefresh() {
+    this.stopLocationRefresh();
+    // 每 10 秒刷新一次位置
+    this.locationTimer = setInterval(() => {
+      this.autoGetLocation();
+    }, 10000);
+  },
+
+  stopLocationRefresh() {
+    if (this.locationTimer) {
+      clearInterval(this.locationTimer);
+      this.locationTimer = null;
+    }
   },
 
   // 跳转到导航页面
