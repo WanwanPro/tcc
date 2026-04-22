@@ -410,6 +410,7 @@ class DynamicWeightedAStarOptimized {
     this.allowDiagonal = options.allowDiagonal || false;
     this.enablePathSmoothing = options.pathSmoothing !== false;
     this.enableLineOfSightSmoothing = options.lineOfSightSmoothing === true;
+    this.useEnhancedCostModel = options.useEnhancedCostModel === true;
     this.maxIterations = options.maxIterations || 50000;
     this.costFactors = {
       turn: options.turnPenalty ?? 0.45,
@@ -654,6 +655,13 @@ class DynamicWeightedAStarOptimized {
 
   _getTraversalCost(current, neighbor, grid, end) {
     const baseCost = neighbor.cost;
+    if (!this.useEnhancedCostModel) {
+      return {
+        cost: baseCost,
+        turnPenalty: 0
+      };
+    }
+
     const turnPenalty = this._getTurnPenalty(current, neighbor.x, neighbor.y);
     const localPenalty = this._getLocalPenalty(neighbor.x, neighbor.y, grid, end);
     const directionalPenalty = this._getDirectionalPenalty(current, neighbor.x, neighbor.y, end);
@@ -888,6 +896,7 @@ class PathfindingManager {
         maxWeight: 2.5,
         minWeight: 1.0,
         pathSmoothing: true,
+        useEnhancedCostModel: true,
         ...options
       })
     });
@@ -896,13 +905,14 @@ class PathfindingManager {
     this.register('astar', {
       name: '标准A*',
       version: '1.0',
-      description: '经典A*算法，保证最优解',
+      description: '经典A*算法，仅基于基础距离代价搜索',
       create: (options) => new DynamicWeightedAStarOptimized({
         weightStrategy: 'fixed',
         heuristic: 'manhattan',
         maxWeight: 1.0,
         minWeight: 1.0,
-        pathSmoothing: true,
+        pathSmoothing: false,
+        useEnhancedCostModel: false,
         ...options
       })
     });
@@ -911,13 +921,14 @@ class PathfindingManager {
     this.register('fast-astar', {
       name: '快速A*',
       version: '1.0',
-      description: '高权重优先，追求速度',
+      description: '简化加权A*，速度优先但路径质量较基础',
       create: (options) => new DynamicWeightedAStarOptimized({
         weightStrategy: 'linear',
         heuristic: 'manhattan',
         maxWeight: 3.0,
         minWeight: 1.5,
         pathSmoothing: false,
+        useEnhancedCostModel: false,
         ...options
       })
     });
