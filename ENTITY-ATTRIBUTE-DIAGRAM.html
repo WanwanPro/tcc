@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCC 智能停车场系统 - 实体属性图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Times New Roman", "SimSun", serif;
+            background: #fff;
+            margin: 0;
+            padding: 40px;
+            color: #333;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 18pt;
+            margin-bottom: 8px;
+            color: #000;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 12pt;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 14pt;
+            margin-top: 35px;
+            margin-bottom: 15px;
+            color: #000;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        h3 {
+            font-size: 12pt;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #222;
+            font-weight: bold;
+        }
+        .mermaid {
+            text-align: center;
+            margin: 15px 0 25px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .note {
+            font-size: 10pt;
+            color: #666;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .db-label {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 9pt;
+            font-weight: normal;
+            margin-left: 8px;
+            border: 1px solid;
+        }
+        .db-system { background: #e3f2fd; color: #1565c0; border-color: #1565c0; }
+        .db-admin { background: #fce4ec; color: #c2185b; border-color: #c2185b; }
+    </style>
+</head>
+<body>
+    <h1>图 4-X 系统数据库实体属性图</h1>
+    <p class="subtitle">TCC 智能停车场管理系统</p>
+
+    <h2>一、parking_system 数据库实体</h2>
+
+    <h3>（1）User 实体 <span class="db-label db-system">parking_system</span></h3>
+    <div class="mermaid">
+erDiagram
+    USER {
+        ObjectId _id PK "主键"
+        String userId UK "用户唯一标识"
+        String openid UK "微信OpenID"
+        String nickname "昵称"
+        String avatar "头像URL"
+        Date createdAt "创建时间"
+    }
+    </div>
+
+    <h3>（2）ParkingSpace 实体 <span class="db-label db-system">parking_system</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_SPACE {
+        ObjectId _id PK "主键"
+        String spaceId UK "车位编号"
+        Object position "坐标 {x, y}"
+        String status "空闲|占用|预定"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（3）Path 实体 <span class="db-label db-system">parking_system</span></h3>
+    <div class="mermaid">
+erDiagram
+    PATH {
+        ObjectId _id PK "主键"
+        String pathId UK "路径编号"
+        Object startPoint "起点 {x, y}"
+        Object endPoint "终点 {x, y}"
+        Array route "路径点 [{x, y}]"
+        Array obstacles "障碍物 [{x,y,w,h}]"
+        Number distance "总距离"
+        Number estimatedTime "预计时间"
+    }
+    </div>
+
+    <h2>二、parking_admin 数据库 - 认证授权模块</h2>
+
+    <h3>（4）Admin 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    ADMIN {
+        ObjectId _id PK "主键"
+        String username UK "用户名"
+        String password "密码（bcrypt加密）"
+        String name "姓名"
+        String email UK "邮箱"
+        String avatar "头像URL"
+        String role "角色 super_admin|admin|operator"
+        Array permissions "权限列表"
+        String status "active|inactive"
+        Date lastLogin "最后登录时间"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（5）Role 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    ROLE {
+        ObjectId _id PK "主键"
+        String name UK "角色名称"
+        String description "角色描述"
+        Array permissions "权限 [{module, actions}]"
+        Boolean isDefault "是否默认角色"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（6）User 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    USER {
+        ObjectId _id PK "主键"
+        String username UK "用户名"
+        String password "密码（bcrypt加密）"
+        String email UK "邮箱"
+        String name "姓名"
+        String avatar "头像URL"
+        String phone "电话"
+        ObjectId role FK "角色ID REF:Role"
+        String status "active|inactive|locked"
+        Date lastLogin "最后登录"
+        Number loginAttempts "登录失败次数"
+        Date lockUntil "锁定截止时间"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>三、parking_admin 数据库 - 停车场核心模块</h2>
+
+    <h3>（7）ParkingLot 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_LOT {
+        ObjectId _id PK "主键"
+        String name "停车场名称"
+        String address "地址"
+        String description "描述"
+        Number totalSpaces "总车位数"
+        Array floors "楼层 [{floorId, floorName, spaces, nodes, mapImage}]"
+        Object operatingHours "营业时间 {open, close}"
+        Array pricingRules FK "计费规则ID列表"
+        String status "active|inactive|maintenance"
+        Array facilities "设施列表"
+        Object contact "联系方式 {phone, email}"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（8）ParkingSpace 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_SPACE {
+        ObjectId _id PK "主键"
+        String spaceId "车位编号"
+        String floorId "楼层ID"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        String area "区域"
+        String type "standard|disabled|electric|vip"
+        String status "available|occupied|reserved|maintenance"
+        Object position "坐标 {x, y}"
+        ObjectId currentNode FK "当前节点 REF:MapNode"
+        Date lastUpdated "最后更新"
+        Object occupiedBy "占用信息 {userId, vehicleNumber, entryTime, estimatedExitTime}"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（9）MapNode 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    MAP_NODE {
+        ObjectId _id PK "主键"
+        String nodeId "节点编号"
+        String floorId "楼层ID"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        String type "entrance|exit|parking|intersection|elevator|stairs|facility"
+        Object position "坐标 {x, y}"
+        Array connections "连接 [{nodeId, distance, direction}]"
+        Boolean isAccessible "是否可达"
+        String name "节点名称"
+        String description "描述"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（10）NavigationPath 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    NAVIGATION_PATH {
+        ObjectId _id PK "主键"
+        String pathId UK "路径编号"
+        String name "路径名称"
+        String description "描述"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        ObjectId startNode FK "起点节点 REF:MapNode"
+        ObjectId endNode FK "终点节点 REF:MapNode"
+        Array nodes "路径节点 [{nodeId, order, instruction, distance, estimatedTime}]"
+        Number totalDistance "总距离"
+        Number totalTime "总时间"
+        String pathType "shortest|fastest|accessible|custom"
+        Boolean isActive "是否启用"
+        ObjectId createdBy FK "创建人 REF:Admin"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（11）PricingRule 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PRICING_RULE {
+        ObjectId _id PK "主键"
+        String name "规则名称"
+        String description "描述"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        Array rules "计费规则 [{vehicleType, timeRanges, pricing}]"
+        Array specialRules "特殊规则 [{name, discountPercentage, startDate, endDate}]"
+        Boolean isActive "是否启用"
+        Date effectiveDate "生效日期"
+        Date expiryDate "失效日期"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>四、parking_admin 数据库 - 小程序用户模块</h2>
+
+    <h3>（12）MiniProgramUser 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    MINIPROGRAM_USER {
+        ObjectId _id PK "主键"
+        String openId UK "微信OpenID"
+        String unionId "微信UnionID"
+        String nickName "昵称"
+        String avatarUrl "头像URL"
+        Number gender "0=未知|1=男|2=女"
+        String phone "手机号"
+        Boolean isGuest "是否游客"
+        Boolean isActive "是否激活"
+        Date lastLoginTime "最后登录"
+        Number loginCount "登录次数"
+        Number totalParkingCount "停车次数"
+        Object statistics "统计 {totalParkingTime, totalParkingFee}"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（13）Vehicle 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    VEHICLE {
+        ObjectId _id PK "主键"
+        ObjectId userId FK "用户ID REF:MiniProgramUser"
+        String licensePlate "车牌号"
+        String vehicleType "sedan|suv|mpv|sports|truck|motorcycle|electric|other"
+        String brand "品牌"
+        String model "型号"
+        String color "颜色"
+        Boolean isDefault "是否默认"
+        Boolean isActive "是否启用"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（14）ParkingRecord 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_RECORD {
+        ObjectId _id PK "主键"
+        ObjectId userId FK "用户ID REF:MiniProgramUser"
+        ObjectId vehicleId FK "车辆ID REF:Vehicle"
+        ObjectId parkingLotId FK "停车场ID REF:ParkingLot"
+        ObjectId spaceId FK "车位ID REF:ParkingSpace"
+        Date entryTime "入场时间"
+        Date exitTime "出场时间"
+        Date plannedExitTime "预计出场"
+        String status "parking|exited|overtime"
+        Object fee "费用 {amount, paid, paymentMethod, paymentTime}"
+        Object navigationPath "导航 {pathId, savedAt}"
+        Object findCarPath "寻车 {pathId, savedAt}"
+        String notes "备注"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（15）FavoriteParkingLot 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    FAVORITE_PARKING_LOT {
+        ObjectId _id PK "主键"
+        ObjectId userId FK "用户ID REF:MiniProgramUser"
+        ObjectId parkingLotId FK "停车场ID REF:ParkingLot"
+        Date addedAt "收藏时间"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（16）UserFeedback 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    USER_FEEDBACK {
+        ObjectId _id PK "主键"
+        ObjectId userId FK "用户ID REF:MiniProgramUser"
+        String type "bug|suggestion|complaint|praise"
+        String content "内容"
+        Array images "图片URL列表"
+        String contactInfo "联系方式"
+        String status "pending|processing|resolved|closed"
+        String adminReply "管理员回复"
+        Date resolvedAt "解决时间"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>五、parking_admin 数据库 - 财务交易模块</h2>
+
+    <h3>（17）Transaction 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    TRANSACTION {
+        ObjectId _id PK "主键"
+        String transactionId UK "交易编号"
+        String type "parking|reservation|penalty|refund"
+        String userId "用户ID"
+        String vehicleNumber "车牌号"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        ObjectId spaceId FK "车位ID REF:ParkingSpace"
+        Date entryTime "入场时间"
+        Date exitTime "出场时间"
+        Number duration "时长(分钟)"
+        Number amount "金额"
+        String paymentMethod "cash|card|mobile|prepaid"
+        String paymentStatus "pending|paid|refunded|failed"
+        Date paymentTime "支付时间"
+        ObjectId pricingRule FK "计费规则 REF:PricingRule"
+        Array breakdown "费用明细 [{description, amount, duration}]"
+        Number discount "折扣"
+        Number tax "税费"
+        Number totalAmount "总金额"
+        String notes "备注"
+        ObjectId processedBy FK "处理人 REF:Admin"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（18）Finance 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    FINANCE {
+        ObjectId _id PK "主键"
+        String type "income|expense|report"
+        String category "分类"
+        Number amount "金额"
+        String transactionId UK "交易编号"
+        String paymentMethod "cash|card|mobile|online|other"
+        ObjectId relatedId FK "关联记录 REF:ParkingRecord"
+        ObjectId parkingLotId FK "停车场ID REF:ParkingLot"
+        ObjectId userId FK "用户ID REF:User"
+        String description "描述"
+        Object relatedData "附加数据"
+        String status "pending|completed|cancelled"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>六、parking_admin 数据库 - 分析报表模块</h2>
+
+    <h3>（19）Analytics 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    ANALYTICS {
+        ObjectId _id PK "主键"
+        String reportId UK "报表编号"
+        String reportType "daily|weekly|monthly|yearly|custom"
+        String title "标题"
+        String description "描述"
+        Object dateRange "日期范围 {startDate, endDate}"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        Object metrics "指标 {totalRevenue, totalTransactions, averageOccupancyRate, peakHours, ...}"
+        Array charts "图表 [{chartType, title, data}]"
+        Array insights "洞察 [{type, description, value}]"
+        ObjectId generatedBy FK "生成人 REF:Admin"
+        Boolean isScheduled "是否定时"
+        Object schedule "定时配置 {frequency, nextRun, recipients}"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>七、parking_admin 数据库 - 系统管理模块</h2>
+
+    <h3>（20）SystemConfig 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    SYSTEM_CONFIG {
+        ObjectId _id PK "主键"
+        String configKey UK "配置键"
+        Mixed configValue "配置值"
+        String description "描述"
+        String category "general|parking|payment|notification|security|map"
+        String dataType "string|number|boolean|object|array"
+        Boolean isEditable "是否可编辑"
+        Object validationRules "验证规则 {min, max, pattern, options}"
+        ObjectId lastUpdatedBy FK "更新人 REF:Admin"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（21）SystemSettings 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    SYSTEM_SETTINGS {
+        ObjectId _id PK "主键"
+        Object basic "基础 {systemName, version, companyName, contactPhone, contactEmail, logoUrl, theme, language}"
+        Object parking "停车 {freeDuration, maxDuration, overtimeRate, autoRelease, autoReleaseTime, enableReservation, reservationAdvanceTime, reservationHoldTime}"
+        Object payment "支付 {paymentMethods, alipayAppId, alipayPrivateKey, wechatAppId, wechatMchId, wechatApiKey, autoPrintInvoice, invoiceTitle, taxNumber}"
+        Object notification "通知 {smsEnabled, smsProvider, smsSignature, emailEnabled, smtpServer, smtpPort, emailAccount, emailPassword, notificationScenes}"
+        Object security "安全 {passwordComplexity, passwordExpiry, loginLockEnabled, maxFailedAttempts, lockDuration, sessionTimeout, twoFactorEnabled, ipWhitelist}"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（22）SystemNotice 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    SYSTEM_NOTICE {
+        ObjectId _id PK "主键"
+        String title "标题"
+        String content "内容"
+        String priority "low|normal|high"
+        String status "active|inactive"
+        Date publishedAt "发布时间"
+        ObjectId createdBy FK "发布人 REF:Admin"
+        String createdByName "发布人姓名"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h2>八、parking_admin 数据库 - 日志审计模块</h2>
+
+    <h3>（23）SystemLog 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    SYSTEM_LOG {
+        ObjectId _id PK "主键"
+        String operator "操作人"
+        String action "create|update|delete|login|logout|export|import|backup|restore|reset|clear"
+        String module "模块"
+        String details "详情"
+        String ip "IP地址"
+        String userAgent "UA"
+        String status "success|failed"
+        String errorMessage "错误信息"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（24）OperationLog 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    OPERATION_LOG {
+        ObjectId _id PK "主键"
+        ObjectId userId FK "用户ID REF:User"
+        String username "用户名"
+        String operation "create|update|delete|view|batch_update|status_change"
+        String resourceType "parking_lot|parking_space|user|system"
+        Array resourceIds "资源ID列表"
+        Object details "详情 {method, url, ip, userAgent, requestBody, params, query}"
+        Date timestamp "操作时间"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（25）ParkingSpaceLog 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_SPACE_LOG {
+        ObjectId _id PK "主键"
+        ObjectId spaceId FK "车位ID REF:ParkingSpace"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        ObjectId operatorId FK "操作人ID REF:User"
+        String operation "create|update|delete|status_change|batch_update"
+        Mixed previousState "变更前状态"
+        Mixed newState "变更后状态"
+        Date timestamp "操作时间"
+        String ipAddress "IP地址"
+        String userAgent "UA"
+        String description "描述"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <h3>（26）ParkingSpaceStatusHistory 实体 <span class="db-label db-admin">parking_admin</span></h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_SPACE_STATUS_HISTORY {
+        ObjectId _id PK "主键"
+        ObjectId spaceId FK "车位ID REF:ParkingSpace"
+        ObjectId lotId FK "停车场ID REF:ParkingLot"
+        String previousStatus "变更前状态"
+        String newStatus "变更后状态"
+        Date changeTime "变更时间"
+        String changeReason "变更原因"
+        String source "manual|sensor|system|sync"
+        ObjectId operatorId FK "操作人ID REF:User"
+        String sessionId "会话ID"
+        Date createdAt "创建时间"
+        Date updatedAt "更新时间"
+    }
+    </div>
+
+    <p class="note">注：PK = 主键（Primary Key），UK = 唯一键（Unique Key），FK = 外键（Foreign Key），REF = 引用目标。</p>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            er: {
+                diagramPadding: 20,
+                nodePadding: 15,
+                minEntityWidth: 100,
+                minEntityHeight: 30,
+                entityPadding: 15,
+                stroke: '#333',
+                fill: '#fff',
+                fontSize: 12
+            }
+        });
+    </script>
+</body>
+</html>

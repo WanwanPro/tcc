@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCC 智能停车场系统 - 数据库设计与实施关系图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: "Times New Roman", SimSun, serif;
+            background: #fff;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 18pt;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 14pt;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        .mermaid {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .note {
+            font-size: 10pt;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .intro {
+            font-size: 10.5pt;
+            line-height: 1.8;
+            border: 1px solid #333;
+            background: #fafafa;
+            padding: 12px 14px;
+            margin: 15px 0 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10pt;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>图 4-1 系统数据库设计与实施关系图</h1>
+
+    <div class="intro">
+        说明：ER图用于描述数据库中的实体、属性及其关联关系；数据库实施后，如果需要继续说明数据库在系统运行环境中的实际连接方式，更合适的图名通常是“系统架构关系图”或“系统部署关系图”，而不是“视图关系图”。因此本页将两部分连续展示：前半部分为数据库 ER 图，后半部分为数据库实施后的系统关系图。
+    </div>
+
+    <h2>4.1 实体属性图</h2>
+
+    <h3>（1）管理员实体</h3>
+    <div class="mermaid">
+erDiagram
+    ADMIN {
+        int id PK "主键"
+        string username "用户名"
+        string password "密码"
+        string name "姓名"
+        string avatar "头像"
+        string role "角色"
+        string phone "电话"
+        string email "邮箱"
+    }
+    </div>
+
+    <h3>（2）用户实体</h3>
+    <div class="mermaid">
+erDiagram
+    USER {
+        int id PK "主键"
+        string username "用户名"
+        string password "密码"
+        string name "姓名"
+        string email "邮箱"
+        string phone "电话"
+        string status "状态"
+    }
+    </div>
+
+    <h3>（3）停车场实体</h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_LOT {
+        int id PK "主键"
+        string name "名称"
+        string address "地址"
+        int totalSpaces "总车位"
+        int floors "楼层数"
+        string status "状态"
+        string facilities "设施"
+    }
+    </div>
+
+    <h3>（4）停车位实体</h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_SPACE {
+        int id PK "主键"
+        string spaceId "车位编号"
+        string floor "楼层"
+        string area "区域"
+        string type "类型"
+        string status "状态"
+        string position "坐标"
+    }
+    </div>
+
+    <h3>（5）交易记录实体</h3>
+    <div class="mermaid">
+erDiagram
+    TRANSACTION {
+        int id PK "主键"
+        string transactionId "交易号"
+        string type "类型"
+        float amount "金额"
+        datetime entryTime "入场时间"
+        datetime exitTime "出场时间"
+        string paymentStatus "支付状态"
+    }
+    </div>
+
+    <h3>（6）小程序用户实体</h3>
+    <div class="mermaid">
+erDiagram
+    MP_USER {
+        int id PK "主键"
+        string openId "微信OpenID"
+        string nickName "昵称"
+        string avatarUrl "头像"
+        string phone "电话"
+        int gender "性别"
+        string status "状态"
+    }
+    </div>
+
+    <h3>（7）车辆实体</h3>
+    <div class="mermaid">
+erDiagram
+    VEHICLE {
+        int id PK "主键"
+        string licensePlate "车牌号"
+        string vehicleType "类型"
+        string brand "品牌"
+        string model "型号"
+        string color "颜色"
+        boolean isDefault "默认"
+    }
+    </div>
+
+    <h3>（8）停车记录实体</h3>
+    <div class="mermaid">
+erDiagram
+    PARKING_RECORD {
+        int id PK "主键"
+        datetime entryTime "入场时间"
+        datetime exitTime "出场时间"
+        string status "状态"
+        float fee "费用"
+        string paymentMethod "支付方式"
+        datetime paymentTime "支付时间"
+    }
+    </div>
+
+    <h2>4.2 实体关系总图</h2>
+    <div class="mermaid">
+erDiagram
+    ROLE ||--o{ ADMIN : "分配"
+    ROLE ||--o{ USER : "分配"
+    MP_USER ||--o{ VEHICLE : "绑定"
+    VEHICLE ||--o{ PARKING_RECORD : "产生"
+    PARKING_RECORD }o--|| PARKING_SPACE : "使用"
+    PARKING_SPACE }o--|| PARKING_LOT : "属于"
+    TRANSACTION }o--|| USER : "关联"
+    TRANSACTION }o--|| PARKING_LOT : "关联"
+
+    ADMIN {
+        int id PK
+        string username
+        string name
+    }
+    ROLE {
+        int id PK
+        string name
+        string permissions
+    }
+    USER {
+        int id PK
+        string username
+        string name
+    }
+    MP_USER {
+        int id PK
+        string openId
+        string nickName
+    }
+    VEHICLE {
+        int id PK
+        string licensePlate
+        string vehicleType
+    }
+    PARKING_RECORD {
+        int id PK
+        datetime entryTime
+        datetime exitTime
+        float fee
+    }
+    PARKING_SPACE {
+        int id PK
+        string spaceId
+        string status
+    }
+    PARKING_LOT {
+        int id PK
+        string name
+        string address
+    }
+    TRANSACTION {
+        int id PK
+        string transactionId
+        float amount
+    }
+    </div>
+
+    <h2>4.3 数据库实施后的系统关系图</h2>
+    <div class="mermaid">
+flowchart LR
+    subgraph Client["客户端层"]
+        WX["微信小程序"]
+        WEB["后台管理前端"]
+    end
+
+    subgraph Service["应用服务层"]
+        TCC["TCC业务后端<br/>Node.js + Express"]
+        ADMIN["System管理后端<br/>Node.js + Express"]
+        SYNC["数据同步服务<br/>sync-from-tcc-db / sync-from-system-db"]
+    end
+
+    subgraph Data["数据存储层"]
+        DB1[("MongoDB<br/>parking_system")]
+        DB2[("MongoDB<br/>parking_admin")]
+    end
+
+    WX -->|"车位查询、路径规划、用户信息"| TCC
+    WEB -->|"运营管理、统计分析、系统配置"| ADMIN
+    TCC -->|"读写业务数据"| DB1
+    ADMIN -->|"读写管理数据"| DB2
+    SYNC -->|"同步车位、停车场、导航等核心数据"| DB1
+    SYNC -->|"同步后的统一运营数据"| DB2
+    TCC -. "兼容读取部分系统数据" .-> DB2
+    ADMIN -. "必要时读取小程序侧数据" .-> DB1
+    </div>
+
+    <p class="note">图中展示的是数据库实施后的系统连接关系，重点反映“哪个系统访问哪个数据库”以及“双库之间的数据同步路径”。</p>
+
+    <h2>4.4 关系说明表</h2>
+    <table>
+        <tr>
+            <th>关系</th>
+            <th>类型</th>
+            <th>说明</th>
+        </tr>
+        <tr>
+            <td>管理员 - 角色</td>
+            <td>N:1</td>
+            <td>多个管理员可共用同一角色</td>
+        </tr>
+        <tr>
+            <td>用户 - 角色</td>
+            <td>N:1</td>
+            <td>多个用户可共用同一角色</td>
+        </tr>
+        <tr>
+            <td>小程序用户 - 车辆</td>
+            <td>1:N</td>
+            <td>一个用户可绑定多辆车</td>
+        </tr>
+        <tr>
+            <td>车辆 - 停车记录</td>
+            <td>1:N</td>
+            <td>一辆车有多条停车记录</td>
+        </tr>
+        <tr>
+            <td>停车记录 - 停车位</td>
+            <td>N:1</td>
+            <td>多个记录对应一个车位</td>
+        </tr>
+        <tr>
+            <td>停车位 - 停车场</td>
+            <td>N:1</td>
+            <td>多个车位属于一个停车场</td>
+        </tr>
+        <tr>
+            <td>交易记录 - 用户</td>
+            <td>N:1</td>
+            <td>多个交易属于一个用户</td>
+        </tr>
+        <tr>
+            <td>TCC后端 - parking_system</td>
+            <td>1:1（部署访问）</td>
+            <td>微信小程序业务服务主要读写业务数据库</td>
+        </tr>
+        <tr>
+            <td>System后端 - parking_admin</td>
+            <td>1:1（部署访问）</td>
+            <td>后台管理服务主要读写管理数据库</td>
+        </tr>
+        <tr>
+            <td>parking_system - parking_admin</td>
+            <td>双向同步</td>
+            <td>通过同步脚本保持核心运营数据的一致性</td>
+        </tr>
+    </table>
+
+    <p class="note">注：PK 表示主键（Primary Key）</p>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            er: {
+                diagramPadding: 20,
+                nodePadding: 15,
+                minEntityWidth: 100,
+                minEntityHeight: 30,
+                entityPadding: 15,
+                stroke: '#333',
+                fill: '#fff',
+                fontSize: 12
+            }
+        });
+    </script>
+</body>
+</html>

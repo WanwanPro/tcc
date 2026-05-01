@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A*算法实现流程图</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --paper: #fffdf8;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #8b7355;
+      --accent: #a16207;
+      --accent-soft: #f6e7c7;
+      --start: #dff5e8;
+      --end: #fde4e4;
+      --shadow: 0 18px 40px rgba(87, 67, 40, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(161, 98, 7, 0.10), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(139, 115, 85, 0.10), transparent 24%),
+        var(--bg);
+      color: var(--ink);
+      padding: 28px;
+    }
+
+    .page {
+      width: 1500px;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 1px solid rgba(139, 115, 85, 0.22);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 30px 30px 36px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: 2px;
+      color: #5b4427;
+    }
+
+    .header p {
+      margin: 10px 0 0;
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    .chart {
+      position: relative;
+      width: 1440px;
+      height: 1280px;
+      margin: 0 auto;
+      border-radius: 22px;
+      background:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.98), rgba(250, 246, 239, 0.98));
+      overflow: hidden;
+    }
+
+    .chart::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border: 1px dashed rgba(139, 115, 85, 0.16);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .node {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 520px;
+      min-height: 88px;
+      padding: 18px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.65;
+      font-size: 22px;
+      font-weight: 600;
+      background: #fff;
+      border: 2px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 10px 24px rgba(87, 67, 40, 0.08);
+      z-index: 2;
+    }
+
+    .node small {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .start {
+      top: 40px;
+      background: var(--start);
+      border-radius: 999px;
+    }
+
+    .step-1 { top: 170px; }
+    .step-2 { top: 320px; }
+    .step-3 { top: 470px; }
+
+    .decision {
+      top: 640px;
+      width: 330px;
+      height: 330px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .decision .diamond {
+      width: 235px;
+      height: 235px;
+      margin: 47px auto 0;
+      background: linear-gradient(135deg, #fff7e8, #f8e7bf);
+      border: 2px solid var(--line);
+      transform: rotate(45deg);
+      border-radius: 24px;
+      box-shadow: 0 12px 22px rgba(87, 67, 40, 0.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .decision .diamond span {
+      transform: rotate(-45deg);
+      width: 180px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.5;
+      color: #5b4427;
+    }
+
+    .step-4 {
+      top: 1030px;
+      left: 250px;
+      transform: none;
+      width: 400px;
+      background: #fff8ef;
+    }
+
+    .step-5 {
+      top: 1030px;
+      left: 790px;
+      transform: none;
+      width: 400px;
+      background: #fff;
+    }
+
+    .step-6 {
+      top: 1170px;
+      left: 790px;
+      transform: none;
+      width: 400px;
+      min-height: 82px;
+      background: #fff;
+    }
+
+    .end {
+      top: 1170px;
+      left: 250px;
+      transform: none;
+      width: 400px;
+      background: var(--end);
+      border-radius: 999px;
+    }
+
+    .label {
+      position: absolute;
+      z-index: 3;
+      padding: 4px 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #7c5a18;
+      background: rgba(255, 248, 231, 0.96);
+      border: 1px solid rgba(139, 115, 85, 0.28);
+      border-radius: 999px;
+    }
+
+    .yes { left: 470px; top: 760px; }
+    .no { left: 980px; top: 760px; }
+    .loop-note {
+      left: 1080px;
+      top: 548px;
+      color: #7a5e38;
+      font-size: 16px;
+      font-weight: 600;
+      background: rgba(255, 253, 248, 0.95);
+    }
+
+    .footer {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    svg {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>A* 算法实现流程图</h1>
+      <p>适合论文插图与截图展示的高清版流程页面</p>
+    </div>
+
+    <div class="chart">
+      <svg viewBox="0 0 1440 1280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <marker id="arrow" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto">
+            <path d="M0,0 L14,7 L0,14 Z" fill="#8b7355"></path>
+          </marker>
+        </defs>
+
+        <path d="M720 128 L720 170" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+        <path d="M720 258 L720 320" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+        <path d="M720 408 L720 470" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+        <path d="M720 558 L720 640" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+
+        <path d="M605 805 L450 805 L450 1030" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+        <path d="M835 805 L990 805 L990 1030" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+
+        <path d="M990 1118 L990 1170" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+        <path d="M990 1210 L1160 1210 L1160 515 L980 515" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+
+        <path d="M450 1118 L450 1170" stroke="#8b7355" stroke-width="4" fill="none" marker-end="url(#arrow)" />
+      </svg>
+
+      <div class="node start">开始</div>
+
+      <div class="node step-1">
+        初始化起点、终点、开放列表、关闭列表以及节点代价值
+      </div>
+
+      <div class="node step-2">
+        将起点加入开放列表，并计算初始启发值
+      </div>
+
+      <div class="node step-3">
+        循环从开放列表中取出 <strong>f(n)</strong> 最小的节点作为当前节点
+      </div>
+
+      <div class="node decision">
+        <div class="diamond">
+          <span>当前节点<br />是否为目标节点？</span>
+        </div>
+      </div>
+
+      <div class="label yes">是</div>
+      <div class="label no">否</div>
+      <div class="label loop-note">未结束则继续搜索</div>
+
+      <div class="node step-4">
+        若当前节点为目标节点，则回溯生成路径
+      </div>
+
+      <div class="node step-5">
+        否则遍历其邻居节点，并计算改进后的综合代价
+      </div>
+
+      <div class="node step-6">
+        若发现更优路径，则更新邻居节点的 g 值、f 值及父节点信息
+      </div>
+
+      <div class="node end">重复上述过程，直到找到目标路径或搜索结束</div>
+    </div>
+
+    <div class="footer">
+      文件可直接在浏览器打开后截图使用，页面已按高分辨率版式排布。
+    </div>
+  </div>
+</body>
+</html>

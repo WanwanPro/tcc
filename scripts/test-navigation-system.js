@@ -15,7 +15,7 @@ const mapElements = JSON.parse(
 );
 
 console.log('========================================');
-console.log('  TCC 导航系统测试');
+console.log('  导航系统测试');
 console.log('========================================\n');
 
 // 1. 测试地图数据

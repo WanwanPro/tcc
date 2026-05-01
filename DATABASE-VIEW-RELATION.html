@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCC 智能停车场系统 - 数据库视图关系图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #1a1a2e;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 18px;
+            margin-top: 40px;
+            margin-bottom: 15px;
+            color: #1a1a2e;
+            border-left: 4px solid #3498db;
+            padding-left: 12px;
+        }
+        h3 {
+            font-size: 15px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .intro {
+            font-size: 13px;
+            line-height: 1.8;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 15px 0 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .mermaid {
+            text-align: center;
+            margin: 20px 0;
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow-x: auto;
+        }
+        .note {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 15px 0;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        th, td {
+            border: 1px solid #e8e8e8;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        th {
+            background: #f0f4f8;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        tr:nth-child(even) { background: #fafbfc; }
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TCC 智能停车场系统</h1>
+        <p class="subtitle">数据库视图关系图（跨库关联与引用关系）</p>
+
+        <div class="intro">
+            <strong>说明：</strong>本图重点展示两个 MongoDB 数据库中各集合之间的引用关系（Foreign Key / Reference）。
+            <br>实线箭头表示强引用（required 外键），虚线箭头表示弱引用（可选外键）。
+            <br>颜色区分：蓝色属于 <code>parking_system</code>，粉色属于 <code>parking_admin</code>。
+        </div>
+
+        <h2>一、parking_admin 数据库内部集合引用关系</h2>
+
+        <div class="mermaid">
+flowchart TB
+    subgraph AUTH["认证授权模块"]
+        ROLE["Role<br/>{ _id, name, permissions }"]
+        ADMIN["Admin<br/>{ _id, username, role, permissions }"]
+        USER["User<br/>{ _id, username, role(FK) }"]
+    end
+
+    subgraph PARKING["停车场核心模块"]
+        PL["ParkingLot<br/>{ _id, name, floors }"]
+        PS["ParkingSpace<br/>{ _id, spaceId, lotId(FK), currentNode(FK) }"]
+        MN["MapNode<br/>{ _id, nodeId, lotId(FK) }"]
+        NP["NavigationPath<br/>{ _id, pathId, lotId(FK), startNode(FK), endNode(FK), createdBy(FK) }"]
+        PR["PricingRule<br/>{ _id, name, lotId(FK) }"]
+    end
+
+    subgraph MINI["小程序用户模块"]
+        MPU["MiniProgramUser<br/>{ _id, openId, nickName }"]
+        VEH["Vehicle<br/>{ _id, userId(FK), licensePlate }"]
+        PREC["ParkingRecord<br/>{ _id, userId(FK), vehicleId(FK), parkingLotId(FK), spaceId(FK), pathId(FK) }"]
+        FPL["FavoriteParkingLot<br/>{ _id, userId(FK), parkingLotId(FK) }"]
+        UF["UserFeedback<br/>{ _id, userId(FK), type, content }"]
+    end
+
+    subgraph FINANCE["财务交易模块"]
+        TRA["Transaction<br/>{ _id, transactionId, lotId(FK), spaceId(FK), pricingRule(FK), processedBy(FK) }"]
+        FIN["Finance<br/>{ _id, transactionId, relatedId(FK), parkingLotId(FK), userId(FK) }"]
+    end
+
+    subgraph ANALYSIS["分析报表模块"]
+        ANA["Analytics<br/>{ _id, reportId, lotId(FK), generatedBy(FK) }"]
+    end
+
+    subgraph SYS["系统管理模块"]
+        SC["SystemConfig<br/>{ _id, configKey, lastUpdatedBy(FK) }"]
+        SS["SystemSettings<br/>{ _id, basic, parking, payment }"]
+        SN["SystemNotice<br/>{ _id, title, createdBy(FK) }"]
+    end
+
+    subgraph LOGS["日志审计模块"]
+        SL["SystemLog<br/>{ _id, operator, action, module }"]
+        OL["OperationLog<br/>{ _id, userId(FK), operation, resourceType }"]
+        PSL["ParkingSpaceLog<br/>{ _id, spaceId(FK), lotId(FK), operatorId(FK) }"]
+        PSSH["ParkingSpaceStatusHistory<br/>{ _id, spaceId(FK), lotId(FK), operatorId(FK) }"]
+    end
+
+    ROLE -->|"1:N 分配"| USER
+    ROLE -.->|"1:N 分配"| ADMIN
+
+    PL -->|"1:N 包含"| PS
+    PL -->|"1:N 包含"| MN
+    PL -->|"1:N 配置"| PR
+    PL -->|"1:N 拥有"| NP
+    MN -.->|"N:M 起止点"| NP
+
+    MPU -->|"1:N 绑定"| VEH
+    MPU -->|"1:N 产生"| PREC
+    MPU -->|"1:N 收藏"| FPL
+    MPU -->|"1:N 提交"| UF
+
+    VEH -->|"1:N 记录"| PREC
+    PS -->|"1:N 使用"| PREC
+    PL -->|"1:N 发生"| PREC
+
+    PL -->|"1:N 交易"| TRA
+    PS -.->|"1:N 关联"| TRA
+    PR -.->|"1:N 计费"| TRA
+    ADMIN -.->|"1:N 处理"| TRA
+
+    PL -->|"1:N 财务"| FIN
+    USER -.->|"1:N 关联"| FIN
+    PREC -.->|"1:N 来源"| FIN
+
+    PL -.->|"1:N 统计"| ANA
+    ADMIN -->|"1:N 生成"| ANA
+
+    ADMIN -.->|"1:N 更新"| SC
+    ADMIN -.->|"1:N 发布"| SN
+
+    USER -->|"1:N 操作"| OL
+    PS -->|"1:N 日志"| PSL
+    PL -->|"1:N 日志"| PSL
+    USER -->|"1:N 操作"| PSL
+
+    PS -->|"1:N 历史"| PSSH
+    PL -->|"1:N 历史"| PSSH
+    USER -.->|"1:N 变更"| PSSH
+        </div>
+
+        <h2>二、parking_system 数据库内部集合关系</h2>
+
+        <div class="mermaid">
+flowchart TB
+    subgraph DB1["parking_system 数据库"]
+        U1["User<br/>{ _id, openid, userId, nickname }"]
+        PS1["ParkingSpace<br/>{ _id, spaceId, position, status }"]
+        P1["Path<br/>{ _id, pathId, startPoint, endPoint, route }"]
+    end
+
+    U1 -.->|"业务读取"| PS1
+    PS1 -.->|"位置关联"| P1
+        </div>
+
+        <h2>三、跨库数据同步关系</h2>
+
+        <div class="mermaid">
+flowchart LR
+    subgraph DB_SYS["parking_system"]
+        PS_SYS["ParkingSpace<br/>spaceId, status, position"]
+        U_SYS["User<br/>openid, nickname"]
+    end
+
+    subgraph SYNC["数据同步服务层"]
+        S1["sync-from-tcc-db"]
+        S2["sync-from-system-db"]
+    end
+
+    subgraph DB_ADMIN["parking_admin"]
+        PS_ADM["ParkingSpace<br/>spaceId, status, lotId"]
+        PL_ADM["ParkingLot<br/>name, totalSpaces"]
+        MPU_ADM["MiniProgramUser<br/>openId, statistics"]
+    end
+
+    PS_SYS -->|"实时同步: spaceId+status"| S1
+    S1 -->|"写入/更新"| PS_ADM
+    S2 -->|"反向同步配置"| PS_SYS
+    PL_ADM -.->|"关联查询"| PS_ADM
+    MPU_ADM -.->|"统计聚合"| PS_ADM
+        </div>
+
+        <h2>四、外键引用总表</h2>
+
+        <table>
+            <tr>
+                <th>引用方集合</th>
+                <th>外键字段</th>
+                <th>被引用集合</th>
+                <th>是否必填</th>
+                <th>所属数据库</th>
+                <th>业务含义</th>
+            </tr>
+            <tr><td>User</td><td>role</td><td>Role</td><td>是</td><td>parking_admin</td><td>用户所属角色</td></tr>
+            <tr><td>ParkingSpace</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>ParkingSpace</td><td>currentNode</td><td>MapNode</td><td>否</td><td>parking_admin</td><td>当前地图节点</td></tr>
+            <tr><td>MapNode</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>NavigationPath</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>NavigationPath</td><td>startNode</td><td>MapNode</td><td>是</td><td>parking_admin</td><td>起点节点</td></tr>
+            <tr><td>NavigationPath</td><td>endNode</td><td>MapNode</td><td>是</td><td>parking_admin</td><td>终点节点</td></tr>
+            <tr><td>NavigationPath</td><td>createdBy</td><td>Admin</td><td>否</td><td>parking_admin</td><td>创建管理员</td></tr>
+            <tr><td>PricingRule</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>Vehicle</td><td>userId</td><td>MiniProgramUser</td><td>是</td><td>parking_admin</td><td>绑定用户</td></tr>
+            <tr><td>ParkingRecord</td><td>userId</td><td>MiniProgramUser</td><td>是</td><td>parking_admin</td><td>停车用户</td></tr>
+            <tr><td>ParkingRecord</td><td>vehicleId</td><td>Vehicle</td><td>是</td><td>parking_admin</td><td>使用车辆</td></tr>
+            <tr><td>ParkingRecord</td><td>parkingLotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>目标停车场</td></tr>
+            <tr><td>ParkingRecord</td><td>spaceId</td><td>ParkingSpace</td><td>是</td><td>parking_admin</td><td>使用车位</td></tr>
+            <tr><td>ParkingRecord</td><td>navigationPath.pathId</td><td>NavigationPath</td><td>否</td><td>parking_admin</td><td>导航路径</td></tr>
+            <tr><td>ParkingRecord</td><td>findCarPath.pathId</td><td>NavigationPath</td><td>否</td><td>parking_admin</td><td>寻车路径</td></tr>
+            <tr><td>FavoriteParkingLot</td><td>userId</td><td>MiniProgramUser</td><td>是</td><td>parking_admin</td><td>收藏用户</td></tr>
+            <tr><td>FavoriteParkingLot</td><td>parkingLotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>收藏停车场</td></tr>
+            <tr><td>UserFeedback</td><td>userId</td><td>MiniProgramUser</td><td>是</td><td>parking_admin</td><td>反馈用户</td></tr>
+            <tr><td>Transaction</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>交易停车场</td></tr>
+            <tr><td>Transaction</td><td>spaceId</td><td>ParkingSpace</td><td>否</td><td>parking_admin</td><td>关联车位</td></tr>
+            <tr><td>Transaction</td><td>pricingRule</td><td>PricingRule</td><td>否</td><td>parking_admin</td><td>计费规则</td></tr>
+            <tr><td>Transaction</td><td>processedBy</td><td>Admin</td><td>否</td><td>parking_admin</td><td>处理管理员</td></tr>
+            <tr><td>Finance</td><td>relatedId</td><td>ParkingRecord</td><td>否</td><td>parking_admin</td><td>关联停车记录</td></tr>
+            <tr><td>Finance</td><td>parkingLotId</td><td>ParkingLot</td><td>否</td><td>parking_admin</td><td>关联停车场</td></tr>
+            <tr><td>Finance</td><td>userId</td><td>User</td><td>否</td><td>parking_admin</td><td>关联后台用户</td></tr>
+            <tr><td>Analytics</td><td>lotId</td><td>ParkingLot</td><td>否</td><td>parking_admin</td><td>统计停车场</td></tr>
+            <tr><td>Analytics</td><td>generatedBy</td><td>Admin</td><td>是</td><td>parking_admin</td><td>生成管理员</td></tr>
+            <tr><td>SystemConfig</td><td>lastUpdatedBy</td><td>Admin</td><td>否</td><td>parking_admin</td><td>最后更新人</td></tr>
+            <tr><td>SystemNotice</td><td>createdBy</td><td>Admin</td><td>否</td><td>parking_admin</td><td>发布管理员</td></tr>
+            <tr><td>OperationLog</td><td>userId</td><td>User</td><td>是</td><td>parking_admin</td><td>操作用户</td></tr>
+            <tr><td>ParkingSpaceLog</td><td>spaceId</td><td>ParkingSpace</td><td>是</td><td>parking_admin</td><td>目标车位</td></tr>
+            <tr><td>ParkingSpaceLog</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>ParkingSpaceLog</td><td>operatorId</td><td>User</td><td>是</td><td>parking_admin</td><td>操作人员</td></tr>
+            <tr><td>ParkingSpaceStatusHistory</td><td>spaceId</td><td>ParkingSpace</td><td>是</td><td>parking_admin</td><td>目标车位</td></tr>
+            <tr><td>ParkingSpaceStatusHistory</td><td>lotId</td><td>ParkingLot</td><td>是</td><td>parking_admin</td><td>所属停车场</td></tr>
+            <tr><td>ParkingSpaceStatusHistory</td><td>operatorId</td><td>User</td><td>否</td><td>parking_admin</td><td>操作人员</td></tr>
+        </table>
+
+        <h2>五、数据流视图（按业务场景）</h2>
+
+        <div class="mermaid">
+flowchart LR
+    subgraph SCENE1["用户停车场景"]
+        A1["小程序用户登录"] --> B1["查询空闲车位"]
+        B1 --> C1["选择目标车位"]
+        C1 --> D1["导航至车位"]
+        D1 --> E1["入场停车"]
+        E1 --> F1["生成停车记录"]
+        F1 --> G1["离场缴费"]
+        G1 --> H1["生成交易记录"]
+    end
+
+    subgraph SCENE2["后台管理场景"]
+        A2["管理员登录"] --> B2["查看运营数据"]
+        B2 --> C2["配置计费规则"]
+        C2 --> D2["发布系统公告"]
+        B2 --> E2["查看财务报表"]
+        E2 --> F2["导出统计报表"]
+    end
+
+    subgraph SCENE3["数据同步场景"]
+        A3["车位状态变更"] --> B3["触发Mongoose钩子"]
+        B3 --> C3["广播WebSocket事件"]
+        C3 --> D3["调用同步服务"]
+        D3 --> E3["更新双库数据"]
+    end
+        </div>
+
+        <p class="note">注：实线表示强引用（required），虚线表示弱引用（optional）。所有 _id 字段均为 MongoDB 自动生成的 ObjectId 主键。</p>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>
