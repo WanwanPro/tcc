@@ -1,0 +1,1 @@
+import{_ as n,d as _,e as t,f as o,g as c}from"./index-753c11fd.js";const s={},a={class:"finance-pending"};function d(p,r){const e=_("el-empty");return t(),o("div",a,[c(e,{description:"财务管理功能待接入财务APi"})])}const f=n(s,[["render",d],["__scopeId","data-v-a5fe0948"]]);export{f as default};
