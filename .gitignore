@@ -1,2 +1,41 @@
-Nothing needs to be added to .gitignore since only a README.md file was modified and there are no build artifacts, dependencies, or temporary files in the changes.
-node_modules
+# Dependencies
+node_modules/
+
+# Environment variables (security!)
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.production
+
+# Build output
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE/Tools
+.idea/
+.vscode/
+.cloudbase/
+.qoder/
+.codebuddy/
+.trae/
+
+# Database backups
+dump_78/
+
+# Temp files
+temp/
+tmp/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
